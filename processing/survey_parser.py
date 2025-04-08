@@ -23,6 +23,23 @@ def best_partial_match(column_name, question_map):
             return english
     return None
 
+def get_expected_dates(start_date, skip_weekends):
+    expected_dates = []
+    date = start_date
+    while len(expected_dates) < 7:
+        if skip_weekends and date.weekday() in [4, 5]:  # Friday=4, Saturday=5
+            date += timedelta(days=1)
+            continue
+        expected_dates.append(date)
+        date += timedelta(days=1)
+    return expected_dates
+
+def get_first_experiment_day(raw_start_date, skip_weekends):
+    date = raw_start_date + timedelta(days=1)
+    while skip_weekends and date.weekday() in [4, 5]:
+        date += timedelta(days=1)
+    return date
+
 def parse_survey_folder(folder_path, question_map, is_child):
     global other_text_participants_by_day
 
@@ -32,55 +49,56 @@ def parse_survey_folder(folder_path, question_map, is_child):
 
     # --- Load participant code map with multi-header ---
     code_path = os.path.join(folder_path, code_file)
-
-    # Read both 2nd and 4th rows as headers (Hebrew label + Participant ID)
     code_df = pd.read_csv(code_path, header=[1, 3])
 
-    # Find the correct column names
     id_col = [col for col in code_df.columns if col[1] == "Participant ID"]
     code_col = [col for col in code_df.columns if "#" in str(col[0])]
+    date_col = [col for col in code_df.columns if col[1] == "Start Date"]
 
-    if not id_col or not code_col:
-        raise ValueError("Could not find valid ID or Code columns in participant code file.")
+    if not id_col or not code_col or not date_col:
+        raise ValueError("Could not find valid ID, Code, or Start Date columns in participant code file.")
 
     id_col = id_col[0]
     code_col = code_col[0]
+    date_col = date_col[0]
 
-    # Filter rows where code is valid (e.g., "#1234")
     valid_code_df = code_df[
         code_df[id_col].notna() &
         code_df[code_col].astype(str).str.match(r"#\d{4}$")
     ]
 
-    # Build clean ID → code mapping
     id_to_code = dict(zip(valid_code_df[id_col], valid_code_df[code_col]))
+    code_to_id = {v: k for k, v in id_to_code.items()}
 
-    # === Process each morning/evening survey ===
+    skip_weekends = "בלי_שישי_שבת" in folder_path
+
+    code_to_start_day = {
+        row[code_col]: get_first_experiment_day(
+            pd.to_datetime(row[date_col], errors="coerce").date(),
+            skip_weekends
+        )
+        for _, row in valid_code_df.iterrows()
+    }
+
     all_rows = []
     for file in survey_files:
         full_path = os.path.join(folder_path, file)
         df = pd.read_csv(full_path, header=3)
-        print("[DEBUG] Survey file columns:", df.columns.tolist())
 
         time_of_day = "AM" if "בוקר" in file or "morning" in file.lower() else "PM"
-
         base_cols = ["Participant ID", "Day of Survey", "Start Date"]
         question_cols = [col for col in df.columns if col not in base_cols and not is_example_column(col)]
         df = df[base_cols + question_cols].copy()
 
         relabeled = {}
         other_free_text_cols = []
-
         for col in question_cols:
             if is_anger_other_column(col):
                 relabeled[col] = "anger_other_freetext"
                 other_free_text_cols.append(col)
             else:
                 match = best_partial_match(col, question_map)
-                if match:
-                    relabeled[col] = match
-                else:
-                    relabeled[col] = col
+                relabeled[col] = match if match else col
 
         df.rename(columns=relabeled, inplace=True)
         df = df[[c for c in df.columns if c in base_cols or relabeled.get(c)]]
@@ -99,49 +117,41 @@ def parse_survey_folder(folder_path, question_map, is_child):
         all_rows.append(df)
 
     combined = pd.concat(all_rows, ignore_index=True)
-    skip_weekends = "בלי_שישי_שבת" in folder_path
     result_rows = []
 
     for participant, p_df in combined.groupby("participant_code"):
         p_df = p_df.sort_values("Start Date")
-        if p_df["Start Date"].isnull().all():
+        if participant not in code_to_start_day:
             continue
-        start_date = p_df["Start Date"].min()
 
-        day_map = {}
-        day_counter = 1
-        date = start_date
-        while day_counter <= 7:
-            weekday = date.weekday()
-            if skip_weekends and weekday in [4, 5]:
-                date += timedelta(days=1)
-                continue
-            day_map[date.date()] = day_counter
-            date += timedelta(days=1)
-            day_counter += 1
+        start_date = code_to_start_day[participant]
+        expected_dates = get_expected_dates(start_date, skip_weekends)
+        expected_timepoints = {(d, tod): False for d in expected_dates for tod in ["AM", "PM"]}
 
         for _, row in p_df.iterrows():
             survey_date = row["Start Date"].date()
-            if survey_date in day_map:
+            tod = row["time_of_day"]
+            if skip_weekends and survey_date.weekday() in [4, 5]:
+                continue  # skip real Fri/Sat responses in בלי שישי שבת
+            if survey_date in expected_dates:
+                expected_timepoints[(survey_date, tod)] = True
                 row_dict = {
                     k: v for k, v in row.items()
-                    if k not in ["Start Date", "Day of Survey", "Participant ID"]
+                    if k not in ["Start Date", "Day of Survey"]
                 }
-                row_dict["day"] = day_map[survey_date]
+                row_dict["day"] = expected_dates.index(survey_date) + 1
+                row_dict["first_day"] = start_date
                 result_rows.append(row_dict)
 
-        for day in range(1, 8):
+        for i, date in enumerate(expected_dates):
             for tod in ["AM", "PM"]:
-                exists = any(
-                    r.get("participant_code") == participant and
-                    r.get("day") == day and
-                    r.get("time_of_day") == tod
-                    for r in result_rows if isinstance(r, dict)
-                )
-                if not exists:
+                if not expected_timepoints[(date, tod)]:
+                    participant_id = code_to_id.get(participant, None)
                     result_rows.append({
+                        "Participant ID": participant_id,
                         "participant_code": participant,
-                        "day": day,
+                        "first_day": start_date,
+                        "day": i + 1,
                         "time_of_day": tod
                     })
 
@@ -149,7 +159,7 @@ def parse_survey_folder(folder_path, question_map, is_child):
     print(f"[DEBUG] Total valid rows: {len(cleaned_rows)}")
     result_df = pd.DataFrame(cleaned_rows)
 
-    base_cols = ["participant_code", "day", "time_of_day"]
+    base_cols = ["Participant ID", "participant_code", "first_day", "day", "time_of_day"]
     other_cols = [col for col in result_df.columns if col not in base_cols]
     result_df = result_df[base_cols + sorted(other_cols)]
     result_df = result_df.sort_values(["participant_code", "day", "time_of_day"])
