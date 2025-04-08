@@ -1,0 +1,21 @@
+ema_pipeline/
+├── data/
+│   ├── input_zips/               # Put ZIP files here
+│   ├── extracted/                # Output of unzipped folders
+│   └── labeling.xlsx             # Question label mapping file # I CHANGED THE LABEL HEADERS TO PARENT LABEL AND CHILD LABEL
+│
+├── output/
+│   ├── children_surveys.csv      # Final output: children
+│   └── parents_surveys.csv       # Final output: parents
+│
+├── ema_pipeline.py               # Main pipeline script (or CLI)
+├── processing/
+│   ├── __init__.py
+│   ├── extract.py                # extract_zips()
+│   ├── labeling.py               # load_labeling_map()
+│   ├── survey_parser.py          # parse survey files
+│   └── merge.py                  # final merge & output
+│
+├── tests/
+│   └── test_pipeline.py          # Optional: test each step
+└── README.md                

@@ -1,0 +1,7 @@
+﻿,,,,,,,,,,,,"Survey","Participant","Question 1"
+,,,,,,,,,,,,,"Question Text","קוד משתתף (בנוי תחילה מהסימן ""#"" ואז ארבע ספרות)"
+,,,,,,,,,,,,,"Response Type","Text"
+"Start Date","End Date","Time Scheduled","Duration (in seconds)","Day of Survey","Occasion within Day","Finished","Participant ID","Location - Lat","Location - Long","No Login","Group Code","ip address","Choices",
+"01/01/2025 03:56PM","01/01/2025 03:56PM","01/01/2025 12:00AM - 01/01/2025 11:59PM",20.112,"1","1","Finished","6775466bc6a0e6121dce8cc1",,,"no","-","192.168.0.100","Participant 3","#7324"
+"01/19/2025 06:13PM","01/19/2025 06:13PM","01/19/2025 12:00AM - 01/19/2025 11:59PM",16.701,"1","1","Finished","678d185d58adab1eb935dcab",,,"no","-","10.84.42.175","Participant 4","#7360"
+"02/09/2025 06:41PM","02/09/2025 06:41PM","02/09/2025 12:00AM - 02/09/2025 11:59PM",14.271,"1","1","Finished","67a8d7bf93e9af3878060a7e",,,"no","-","10.0.0.14","Participant 5","#3780"

@@ -1,0 +1,9 @@
+﻿,,,,,,,,,,,,"Survey","Participant","Question 1"
+,,,,,,,,,,,,,"Question Text","קוד משתתף (מורכב מהסימן ""#"" ואז ארבע ספרות)"
+,,,,,,,,,,,,,"Response Type","Text"
+"Start Date","End Date","Time Scheduled","Duration (in seconds)","Day of Survey","Occasion within Day","Finished","Participant ID","Location - Lat","Location - Long","No Login","Group Code","ip address","Choices",
+"12/19/2024 04:53PM","12/19/2024 04:53PM","12/19/2024 12:00AM - 12/19/2024 11:59PM",17.274,"1","1","Finished","67487b67cc103e20a98416f6","0.0","0.0","no","-","2001:40a8:739:3ac3:1025:8e86:45d9:a2a7","Participant 1","#TEST345"
+"12/19/2024 04:54PM","12/19/2024 04:54PM","12/19/2024 12:00AM - 12/19/2024 11:59PM",45.914,"1","1","Finished","66e03ee644f1da2a6001020f",,,"no","-","10.228.222.192","Participant 2","#test123"
+"03/19/2025 04:41PM","03/19/2025 04:41PM","03/19/2025 12:00AM - 03/19/2025 11:59PM",4.894,"1","1","Finished","66e03ee644f1da2a6001020f",,,"no","-","10.100.102.5","Participant 2","test-test"
+"01/26/2025 08:38PM","01/26/2025 08:39PM","01/26/2025 12:00AM - 01/26/2025 11:59PM",30.619,"1","1","Finished","679671cafd75d39f735af122","0.0","0.0","no","-","192.168.68.136","Participant 4","#7358"
+"03/06/2025 06:31PM","03/06/2025 06:31PM","03/06/2025 12:00AM - 03/06/2025 11:59PM",20.969,"1","1","Finished","67c98ba346dea88167053136","0.0","0.0","no","-","2a06:c701:9cf6:2700:1124:1539:e6be:913d","Participant 5","#7394"
