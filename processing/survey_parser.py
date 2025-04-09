@@ -1,16 +1,27 @@
+# --- survey_parser.py ---
 import os
 import pandas as pd
 import re
 from datetime import datetime, timedelta
-from .labeling import relabel_columns
+from processing.labeling import relabel_columns
 
-other_text_participants_by_day = {}
+# Global list to store other free-text values
+other_text_participants_by_day = []
+
+def is_example_column(column_name):
+    return "אפשר גם להקליט תשובה" in column_name
+
+def best_partial_match(column_name, question_map):
+    for hebrew, english in question_map.items():
+        if hebrew.strip() in column_name.strip():
+            return english
+    return None
 
 def get_expected_dates(start_date, skip_weekends):
     expected_dates = []
     date = start_date
     while len(expected_dates) < 7:
-        if skip_weekends and date.weekday() in [4, 5]:
+        if skip_weekends and date.weekday() in [4, 5]:  # Friday=4, Saturday=5
             date += timedelta(days=1)
             continue
         expected_dates.append(date)
@@ -31,11 +42,14 @@ def parse_survey_folder(folder_path, question_map, is_child):
     survey_files = [f for f in files if f != code_file]
 
     code_path = os.path.join(folder_path, code_file)
-    code_df = pd.read_csv(code_path, header=[1, 3])
+    code_df = pd.read_csv(code_path, header=[1, 3], encoding="utf-8-sig")
 
     id_col = [col for col in code_df.columns if col[1] == "Participant ID"]
     code_col = [col for col in code_df.columns if "#" in str(col[0])]
     date_col = [col for col in code_df.columns if col[1] == "Start Date"]
+
+    if not id_col or not code_col or not date_col:
+        raise ValueError("Could not find valid ID, Code, or Start Date columns in participant code file.")
 
     id_col = id_col[0]
     code_col = code_col[0]
@@ -60,31 +74,25 @@ def parse_survey_folder(folder_path, question_map, is_child):
     }
 
     all_rows = []
-    if os.path.exists("unmatched_questions.log"):
-        os.remove("unmatched_questions.log")
-
     for file in survey_files:
         full_path = os.path.join(folder_path, file)
-        headers_df = pd.read_csv(full_path, nrows=4, header=None)
+        headers_df = pd.read_csv(full_path, nrows=4, header=None, encoding="utf-8-sig")
         question_texts = headers_df.iloc[1]
         question_types = headers_df.iloc[2]
         subquestion_texts = headers_df.iloc[3]
 
         column_map, unmatched = relabel_columns(question_texts, question_types, subquestion_texts, question_map)
-        print(f"[DEBUG] Mapped {len(column_map)} columns in file: {file}")
 
         if unmatched:
             with open("unmatched_questions.log", "a", encoding="utf-8") as log:
                 log.write(f"\n--- Unmatched in {file} ---\n")
                 for qtext, opt in unmatched:
-                    log.write(f"Unmatched: {qtext} → {opt}\n")
+                    log.write(f"Unmatched: {qtext} -> {opt}\n")
 
-        # Load the actual response data
-        response_df = pd.read_csv(full_path, skiprows=3)
+        response_df = pd.read_csv(full_path, skiprows=3, encoding="utf-8-sig")
 
         time_of_day = "AM" if "בוקר" in file or "morning" in file.lower() else "PM"
 
-        # Build DataFrame with only relevant columns
         df = pd.DataFrame()
         df["Participant ID"] = response_df["Participant ID"]
         df["Start Date"] = pd.to_datetime(response_df["Start Date"], errors="coerce")
@@ -116,7 +124,10 @@ def parse_survey_folder(folder_path, question_map, is_child):
                 continue
             if survey_date in expected_dates:
                 expected_timepoints[(survey_date, tod)] = True
-                row_dict = {k: v for k, v in row.items() if k not in ["Start Date"]}
+                row_dict = {
+                    k: v for k, v in row.items()
+                    if k not in ["Start Date"]
+                }
                 row_dict["day"] = expected_dates.index(survey_date) + 1
                 row_dict["first_day"] = start_date
                 result_rows.append(row_dict)
@@ -133,8 +144,26 @@ def parse_survey_folder(folder_path, question_map, is_child):
                         "time_of_day": tod
                     })
 
-    cleaned_rows = [r for r in result_rows if isinstance(r, dict)]
-    result_df = pd.DataFrame(cleaned_rows)
+    result_df = pd.DataFrame(result_rows)
+
+    # --- Handle "other" text fields ---
+    for colname, label in [("C_Agr_other", "Children"), ("P_Agr_other", "Parent")]:
+        if colname in result_df.columns:
+            text_col = f"{colname}_text"
+            result_df[text_col] = result_df[colname].apply(lambda x: "" if pd.isna(x) else str(x).strip())
+            result_df[colname] = result_df[text_col].apply(lambda x: "Yes" if x else "No")
+
+            for _, row in result_df.iterrows():
+                if row[colname] == "Yes":
+                    other_text_participants_by_day.append({
+                        "Participant ID": row["Participant ID"],
+                        "participant_code": row["participant_code"],
+                        "Parent/Children": label,
+                        "Day of experiment": row["day"],
+                        "text": row[text_col]
+                    })
+
+            result_df.drop(columns=[text_col], inplace=True)
 
     base_cols = ["Participant ID", "participant_code", "first_day", "day", "time_of_day"]
     other_cols = [col for col in result_df.columns if col not in base_cols]
@@ -145,16 +174,25 @@ def parse_survey_folder(folder_path, question_map, is_child):
 
 def save_other_text_mapping(output_csv_path):
     records = []
-    for (participant_code, day_or_date, time_of_day), text in other_text_participants_by_day.items():
-        day = day_or_date
-        if isinstance(day_or_date, datetime):
-            day = day_or_date.strftime("%Y-%m-%d")
+    for record in other_text_participants_by_day:
+        text = record.get("text")
+        if isinstance(text, float) and pd.isna(text):
+            continue  # skip NaN
+        if not text or str(text).strip() == "":
+            continue  # skip empty strings
         records.append({
-            "participant_code": participant_code,
-            "day": day,
-            "time_of_day": time_of_day,
+            "Participant ID": record["Participant ID"],
+            "participant_code": record["participant_code"],
+            "Parent/Children": record["Parent/Children"],
+            "Day of experiment": record["Day of experiment"],
             "text": text
         })
-    df = pd.DataFrame(records)
-    df.to_csv(output_csv_path, index=False)
-    print(f"[INFO] Saved other free-text responses to {output_csv_path}")
+
+    if records:
+        df = pd.DataFrame(records)
+        df.to_csv(output_csv_path, index=False, encoding="utf-8-sig")
+        print(f"[INFO] Saved {len(df)} valid free-text responses to {output_csv_path}")
+    else:
+        print("[INFO] No valid free-text 'Other' responses found.")
+
+
