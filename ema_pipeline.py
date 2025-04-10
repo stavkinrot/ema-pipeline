@@ -36,12 +36,12 @@ def main():
 
     if children_dfs:
         children_df = pd.concat(children_dfs, ignore_index=True)
-        children_df.to_csv(output_children_csv, index=False)
+        children_df.to_csv(output_children_csv, index=False, encoding="utf-8-sig")
         print(f"[INFO] Saved children data to {output_children_csv}")
 
     if parent_dfs:
         parents_df = pd.concat(parent_dfs, ignore_index=True)
-        parents_df.to_csv(output_parents_csv, index=False)
+        parents_df.to_csv(output_parents_csv, index=False, encoding="utf-8-sig")
         print(f"[INFO] Saved parent data to {output_parents_csv}")
 
     save_other_text_mapping(output_other_texts_csv)

@@ -146,12 +146,21 @@ def parse_survey_folder(folder_path, question_map, is_child):
 
     result_df = pd.DataFrame(result_rows)
 
+    metadata_cols = {"Participant ID", "participant_code", "first_day", "day", "time_of_day"}
+
     # --- Handle "other" text fields ---
     for colname, label in [("C_Agr_other", "Children"), ("P_Agr_other", "Parent")]:
         if colname in result_df.columns:
+            survey_cols = [col for col in result_df.columns if col not in metadata_cols and col != colname]
             text_col = f"{colname}_text"
             result_df[text_col] = result_df[colname].apply(lambda x: "" if pd.isna(x) else str(x).strip())
-            result_df[colname] = result_df[text_col].apply(lambda x: "Yes" if x else "No")
+
+            def classify_agr_other(row):
+                if row[survey_cols].isna().all():
+                    return ""  # Missed survey — leave cell empty
+                return "Yes" if row[text_col] else "No"
+
+            result_df[colname] = result_df.apply(classify_agr_other, axis=1)
 
             for _, row in result_df.iterrows():
                 if row[colname] == "Yes":
@@ -194,5 +203,3 @@ def save_other_text_mapping(output_csv_path):
         print(f"[INFO] Saved {len(df)} valid free-text responses to {output_csv_path}")
     else:
         print("[INFO] No valid free-text 'Other' responses found.")
-
-
