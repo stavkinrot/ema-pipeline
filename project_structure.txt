@@ -1,0 +1,78 @@
+├── ./
+│   ├── children_example.xlsx
+│   ├── ema_pipeline.py
+│   ├── generate_tree.py
+│   ├── pipleline_structure.txt
+│   ├── project_structure.txt
+│   ├── pytest.ini
+│   ├── unmatched_questions.log
+│   └── צעדים לניתוח - כללי.docx
+├── data/
+│   ├── children_labeling.xlsx
+│   ├── labeling.xlsx
+│   └── parent_labeling.xlsx
+│   ├── extracted/
+│   │   ├── EMA_Boy_Father/
+│   │   │   ├── סקר_ילדאבא-בוקר.csv
+│   │   │   ├── סקר_ילדאבא-ערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Boy_Father__בלי_שישי_שבת_/
+│   │   │   ├── סקר_ילדאבא-בוקר.csv
+│   │   │   ├── סקר_ילדאבא-ערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Boy_Mother/
+│   │   │   ├── סקר_ילדאמא-בוקר.csv
+│   │   │   ├── סקר_ילדאמא-ערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Boy_Mother__בלי_שישי_שבת_/
+│   │   │   ├── סקר_ילדאמא-בוקר.csv
+│   │   │   ├── סקר_ילדאמא-ערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Girl_Father/
+│   │   │   ├── סקר_ילדהאבא-בוקר.csv
+│   │   │   ├── סקר_ילדהאבא-ערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Girl_Father__בלי_שישי_שבת_/
+│   │   │   ├── סקר_ילדהאבא-בוקר.csv
+│   │   │   ├── סקר_ילדהאבא-ערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Girl_Mother/
+│   │   │   ├── סקר_ילדהאמא-בוקר.csv
+│   │   │   ├── סקר_ילדהאמא-ערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Girl_Mother__בלי_שישי_שבת_/
+│   │   │   ├── סקר_ילדהאמא-בוקר.csv
+│   │   │   ├── סקר_ילדהאמא-ערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Parent/
+│   │   │   ├── סקר_הורה__בוקר.csv
+│   │   │   ├── סקר_הורהערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   │   ├── EMA_Parent__בלי_שישי_שבת_/
+│   │   │   ├── סקר_הורה__בוקר.csv
+│   │   │   ├── סקר_הורהערב.csv
+│   │   │   └── קוד_משתתף.csv
+│   ├── input_zips/
+│   │   ├── EMA_Boy_Father.zip
+│   │   ├── EMA_Boy_Father__בלי_שישי_שבת_.zip
+│   │   ├── EMA_Boy_Mother.zip
+│   │   ├── EMA_Boy_Mother__בלי_שישי_שבת_.zip
+│   │   ├── EMA_Girl_Father.zip
+│   │   ├── EMA_Girl_Father__בלי_שישי_שבת_.zip
+│   │   ├── EMA_Girl_Mother.zip
+│   │   ├── EMA_Girl_Mother__בלי_שישי_שבת_.zip
+│   │   ├── EMA_Parent.zip
+│   │   └── EMA_Parent__בלי_שישי_שבת_.zip
+├── output/
+│   ├── children_surveys.csv
+│   ├── other_text_responses.csv
+│   └── parents_surveys.csv
+├── processing/
+│   ├── extract.py
+│   ├── labeling.py
+│   └── survey_parser.py
+├── tests/
+│   ├── conftest.py
+│   ├── participants.py
+│   ├── test_pipeline.py
+│   └── values.py
