@@ -28,10 +28,10 @@ def main():
 
         print(f"[INFO] Processing folder: {folder_name}")
         if "EMA_Parent" in folder_name:
-            df = parse_survey_folder(folder_path, parent_map, is_child=False)
+            df = parse_survey_folder(folder_path, parent_map)
             parent_dfs.append(df)
         else:
-            df = parse_survey_folder(folder_path, child_map, is_child=True)
+            df = parse_survey_folder(folder_path, child_map)
             children_dfs.append(df)
 
     if children_dfs:

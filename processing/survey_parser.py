@@ -34,7 +34,7 @@ def get_first_experiment_day(raw_start_date, skip_weekends):
         date += timedelta(days=1)
     return date
 
-def parse_survey_folder(folder_path, question_map, is_child):
+def parse_survey_folder(folder_path, question_map):
     global other_text_participants_by_day
 
     files = [f for f in os.listdir(folder_path) if f.endswith(".csv")]
@@ -55,9 +55,12 @@ def parse_survey_folder(folder_path, question_map, is_child):
     code_col = code_col[0]
     date_col = date_col[0]
 
+    # Clean up code column: remove whitespace, newlines, and anything before #y
+    code_df[code_col] = code_df[code_col].astype(str).str.extract(r"(#\d{4})")[0].fillna("")
+
     valid_code_df = code_df[
-        code_df[id_col].notna() &
-        code_df[code_col].astype(str).str.match(r"#\d{4}$")
+        code_df[id_col].notna() & 
+        code_df[code_col].str.match(r"#\d{4}")
     ]
 
     id_to_code = dict(zip(valid_code_df[id_col], valid_code_df[code_col]))
@@ -151,28 +154,18 @@ def parse_survey_folder(folder_path, question_map, is_child):
     # --- Handle "other" text fields ---
     for colname, label in [("C_Agr_other", "Children"), ("P_Agr_other", "Parent")]:
         if colname in result_df.columns:
-            survey_cols = [col for col in result_df.columns if col not in metadata_cols and col != colname]
-            text_col = f"{colname}_text"
-            result_df[text_col] = result_df[colname].apply(lambda x: "" if pd.isna(x) else str(x).strip())
-
-            def classify_agr_other(row):
-                if row[survey_cols].isna().all():
-                    return ""  # Missed survey — leave cell empty
-                return "Yes" if row[text_col] else "No"
-
-            result_df[colname] = result_df.apply(classify_agr_other, axis=1)
+            result_df[colname] = result_df[colname].apply(lambda x: "" if pd.isna(x) else str(x).strip())
 
             for _, row in result_df.iterrows():
-                if row[colname] == "Yes":
+                text_value = row[colname]
+                if text_value:
                     other_text_participants_by_day.append({
                         "Participant ID": row["Participant ID"],
                         "participant_code": row["participant_code"],
                         "Parent/Children": label,
                         "Day of experiment": row["day"],
-                        "text": row[text_col]
+                        "text": text_value
                     })
-
-            result_df.drop(columns=[text_col], inplace=True)
 
     base_cols = ["Participant ID", "participant_code", "first_day", "day", "time_of_day"]
     other_cols = [col for col in result_df.columns if col not in base_cols]
