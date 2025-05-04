@@ -56,12 +56,51 @@ def parse_survey_folder(folder_path, question_map):
     date_col = date_col[0]
 
     # Clean up code column: remove whitespace, newlines, and anything before #y
-    code_df[code_col] = code_df[code_col].astype(str).str.extract(r"(#\d{4})")[0].fillna("")
+    raw_code_series = code_df[code_col].astype(str).str.strip()
+    code_df["_raw_code_column_for_logging"] = raw_code_series
 
+    cleaned_codes = []
+    with open("unmatched_participants.log", "a", encoding="utf-8") as log_file:
+        for idx, original in raw_code_series.items():
+            match = re.search(r"\d{4}", original)
+            cleaned = f"#{match.group()}" if match else ""
+
+            if cleaned and not re.fullmatch(r"#\d{4}", original.strip()):
+                log_file.write(f"[FIXED CODE] Row {idx}: original='{original}' -> cleaned='{cleaned}'\n")
+
+            cleaned_codes.append(cleaned)
+
+    code_df[code_col] = cleaned_codes
+    
     valid_code_df = code_df[
         code_df[id_col].notna() & 
         code_df[code_col].str.match(r"#\d{4}")
     ]
+
+    raw_codes = code_df[code_col].astype(str)
+
+    # Find rows with missing ID or invalid code format
+    unmatched_participants = code_df[
+        code_df[id_col].isna() |
+        raw_codes.isna() |
+        ~raw_codes.str.fullmatch(r"#\d{4}")
+    ]
+
+    # Append log if any unmatched participants were found
+    if not unmatched_participants.empty:
+        with open("unmatched_participants.log", "a", encoding="utf-8") as f:
+            f.write(f"\n--- Unmatched participants in folder: {folder_path} ---\n")
+            for _, row in unmatched_participants.iterrows():
+                pid = str(row.get(id_col, "")).strip()
+                code = str(row.get("_raw_code_column_for_logging", "")).strip()
+
+                reason = []
+                if not pid or pd.isna(pid):
+                    reason.append("missing ID")
+                if not code or not re.fullmatch(r"#\d{4}", code):
+                    reason.append("invalid code")
+
+                f.write(f"ID: {pid}, Code: {code}, Reason: {', '.join(reason)}\n")
 
     id_to_code = dict(zip(valid_code_df[id_col], valid_code_df[code_col]))
     code_to_id = {v: k for k, v in id_to_code.items()}
