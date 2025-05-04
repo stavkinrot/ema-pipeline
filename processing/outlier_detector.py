@@ -5,6 +5,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 from processing.contradiction_config import CONTRADICTION_PAIRS, COMPATIBLE_PAIRS
 from openpyxl.comments import Comment
+from datetime import timedelta
 
 
 class OutlierDetector:

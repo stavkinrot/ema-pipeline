@@ -55,7 +55,6 @@ def parse_survey_folder(folder_path, question_map):
     code_col = code_col[0]
     date_col = date_col[0]
 
-    # Clean up code column: remove whitespace, newlines, and anything before #y
     raw_code_series = code_df[code_col].astype(str).str.strip()
     code_df["_raw_code_column_for_logging"] = raw_code_series
 
@@ -71,7 +70,7 @@ def parse_survey_folder(folder_path, question_map):
             cleaned_codes.append(cleaned)
 
     code_df[code_col] = cleaned_codes
-    
+
     valid_code_df = code_df[
         code_df[id_col].notna() & 
         code_df[code_col].str.match(r"#\d{4}")
@@ -79,14 +78,12 @@ def parse_survey_folder(folder_path, question_map):
 
     raw_codes = code_df[code_col].astype(str)
 
-    # Find rows with missing ID or invalid code format
     unmatched_participants = code_df[
         code_df[id_col].isna() |
         raw_codes.isna() |
         ~raw_codes.str.fullmatch(r"#\d{4}")
     ]
 
-    # Append log if any unmatched participants were found
     if not unmatched_participants.empty:
         with open("unmatched_participants.log", "a", encoding="utf-8") as f:
             f.write(f"\n--- Unmatched participants in folder: {folder_path} ---\n")
@@ -137,7 +134,9 @@ def parse_survey_folder(folder_path, question_map):
 
         df = pd.DataFrame()
         df["Participant ID"] = response_df["Participant ID"]
-        df["Start Date"] = pd.to_datetime(response_df["Start Date"], errors="coerce")
+        df["Start Date"] = pd.to_datetime(response_df["Start Date"], errors="coerce", format="%m/%d/%Y %I:%M%p")
+        df["End Date"] = pd.to_datetime(response_df["End Date"], errors="coerce", format="%m/%d/%Y %I:%M%p")
+        df["timestamp"] = df[["Start Date", "End Date"]].mean(axis=1, numeric_only=False)
         df["participant_code"] = df["Participant ID"].map(id_to_code)
         df["time_of_day"] = time_of_day
 
@@ -151,7 +150,7 @@ def parse_survey_folder(folder_path, question_map):
     result_rows = []
 
     for participant, p_df in combined.groupby("participant_code"):
-        p_df = p_df.sort_values("Start Date")
+        p_df = p_df.sort_values("timestamp")
         if participant not in code_to_start_day:
             continue
 
@@ -168,7 +167,7 @@ def parse_survey_folder(folder_path, question_map):
                 expected_timepoints[(survey_date, tod)] = True
                 row_dict = {
                     k: v for k, v in row.items()
-                    if k not in ["Start Date"]
+                    if k not in ["Start Date", "End Date"]
                 }
                 row_dict["day"] = expected_dates.index(survey_date) + 1
                 row_dict["first_day"] = start_date
@@ -183,14 +182,14 @@ def parse_survey_folder(folder_path, question_map):
                         "participant_code": participant,
                         "first_day": start_date,
                         "day": i + 1,
-                        "time_of_day": tod
+                        "time_of_day": tod,
+                        "timestamp": pd.NaT
                     })
 
     result_df = pd.DataFrame(result_rows)
 
-    metadata_cols = {"Participant ID", "participant_code", "first_day", "day", "time_of_day"}
+    metadata_cols = {"Participant ID", "participant_code", "first_day", "day", "time_of_day", "timestamp"}
 
-    # --- Handle "other" text fields ---
     for colname, label in [("C_Agr_other", "Children"), ("P_Agr_other", "Parent")]:
         if colname in result_df.columns:
             result_df[colname] = result_df[colname].apply(lambda x: "" if pd.isna(x) else str(x).strip())
@@ -206,7 +205,7 @@ def parse_survey_folder(folder_path, question_map):
                         "text": text_value
                     })
 
-    base_cols = ["Participant ID", "participant_code", "first_day", "day", "time_of_day"]
+    base_cols = ["Participant ID", "participant_code", "first_day", "day", "time_of_day", "timestamp"]
     other_cols = [col for col in result_df.columns if col not in base_cols]
     result_df = result_df[base_cols + sorted(other_cols)]
     result_df = result_df.sort_values(["participant_code", "day", "time_of_day"])
@@ -218,9 +217,9 @@ def save_other_text_mapping(output_csv_path):
     for record in other_text_participants_by_day:
         text = record.get("text")
         if isinstance(text, float) and pd.isna(text):
-            continue  # skip NaN
+            continue
         if not text or str(text).strip() == "":
-            continue  # skip empty strings
+            continue
         records.append({
             "Participant ID": record["Participant ID"],
             "participant_code": record["participant_code"],
