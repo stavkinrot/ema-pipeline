@@ -1,9 +1,26 @@
-# --- survey_parser.py ---
 import os
 import pandas as pd
 import re
 from datetime import datetime, timedelta
 from processing.labeling import relabel_columns
+import logging
+
+# --- Logging setup ---
+os.makedirs("logs", exist_ok=True)
+
+unmatched_participants_logger = logging.getLogger("unmatched_participants")
+unmatched_participants_logger.setLevel(logging.WARNING)
+up_handler = logging.FileHandler("logs/unmatched_participants.log", mode="w", encoding="utf-8")
+up_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+unmatched_participants_logger.addHandler(up_handler)
+unmatched_participants_logger.propagate = False
+
+unmatched_questions_logger = logging.getLogger("unmatched_questions")
+unmatched_questions_logger.setLevel(logging.WARNING)
+uq_handler = logging.FileHandler("logs/unmatched_questions.log", mode="w", encoding="utf-8")
+uq_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+unmatched_questions_logger.addHandler(uq_handler)
+unmatched_questions_logger.propagate = False
 
 # Global list to store other free-text values
 other_text_participants_by_day = []
@@ -59,15 +76,16 @@ def parse_survey_folder(folder_path, question_map):
     code_df["_raw_code_column_for_logging"] = raw_code_series
 
     cleaned_codes = []
-    with open("unmatched_participants.log", "a", encoding="utf-8") as log_file:
-        for idx, original in raw_code_series.items():
-            match = re.search(r"\d{4}", original)
-            cleaned = f"#{match.group()}" if match else ""
+    for idx, original in raw_code_series.items():
+        match = re.search(r"\d{4}", original)
+        cleaned = f"#{match.group()}" if match else ""
 
-            if cleaned and not re.fullmatch(r"#\d{4}", original.strip()):
-                log_file.write(f"[FIXED CODE] Row {idx}: original='{original}' -> cleaned='{cleaned}'\n")
+        if cleaned and not re.fullmatch(r"#\d{4}", original.strip()):
+            unmatched_participants_logger.warning(
+                f"[FIXED CODE] Row {idx}: original='{original}' -> cleaned='{cleaned}'"
+            )
 
-            cleaned_codes.append(cleaned)
+        cleaned_codes.append(cleaned)
 
     code_df[code_col] = cleaned_codes
 
@@ -84,20 +102,20 @@ def parse_survey_folder(folder_path, question_map):
         ~raw_codes.str.fullmatch(r"#\d{4}")
     ]
 
-    if not unmatched_participants.empty:
-        with open("unmatched_participants.log", "a", encoding="utf-8") as f:
-            f.write(f"\n--- Unmatched participants in folder: {folder_path} ---\n")
-            for _, row in unmatched_participants.iterrows():
-                pid = str(row.get(id_col, "")).strip()
-                code = str(row.get("_raw_code_column_for_logging", "")).strip()
+    unmatched_participants_logger.warning(f"--- Unmatched participants in folder: {folder_path} ---")
+    for _, row in unmatched_participants.iterrows():
+        pid = str(row.get(id_col, "")).strip()
+        code = str(row.get("_raw_code_column_for_logging", "")).strip()
 
-                reason = []
-                if not pid or pd.isna(pid):
-                    reason.append("missing ID")
-                if not code or not re.fullmatch(r"#\d{4}", code):
-                    reason.append("invalid code")
+        reason = []
+        if not pid or pd.isna(pid):
+            reason.append("missing ID")
+        if not code or not re.fullmatch(r"#\d{4}", code):
+            reason.append("invalid code")
 
-                f.write(f"ID: {pid}, Code: {code}, Reason: {', '.join(reason)}\n")
+        unmatched_participants_logger.warning(
+            f"ID: {pid}, Code: {code}, Reason: {', '.join(reason)}"
+        )
 
     id_to_code = dict(zip(valid_code_df[id_col], valid_code_df[code_col]))
     code_to_id = {v: k for k, v in id_to_code.items()}
@@ -123,10 +141,9 @@ def parse_survey_folder(folder_path, question_map):
         column_map, unmatched = relabel_columns(question_texts, question_types, subquestion_texts, question_map)
 
         if unmatched:
-            with open("unmatched_questions.log", "a", encoding="utf-8") as log:
-                log.write(f"\n--- Unmatched in {file} ---\n")
-                for qtext, opt in unmatched:
-                    log.write(f"Unmatched: {qtext} -> {opt}\n")
+            unmatched_questions_logger.warning(f"--- Unmatched questions in file: {file} ---")
+            for qtext, opt in unmatched:
+                unmatched_questions_logger.warning(f"Unmatched: '{qtext}' -> Option: '{opt}'")
 
         response_df = pd.read_csv(full_path, skiprows=3, encoding="utf-8-sig")
 
