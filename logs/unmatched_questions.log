@@ -1,48 +1,48 @@
-2025-05-05 09:34:19,534 - WARNING - --- Unmatched questions in file: סקר_ילדאבא-בוקר.csv ---
-2025-05-05 09:34:19,535 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,556 - WARNING - --- Unmatched questions in file: סקר_ילדאבא-ערב.csv ---
-2025-05-05 09:34:19,556 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,556 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
-2025-05-05 09:34:19,602 - WARNING - --- Unmatched questions in file: סקר_ילדאבא-בוקר.csv ---
-2025-05-05 09:34:19,602 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,622 - WARNING - --- Unmatched questions in file: סקר_ילדאבא-ערב.csv ---
-2025-05-05 09:34:19,622 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,622 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
-2025-05-05 09:34:19,676 - WARNING - --- Unmatched questions in file: סקר_ילדאמא-בוקר.csv ---
-2025-05-05 09:34:19,676 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,699 - WARNING - --- Unmatched questions in file: סקר_ילדאמא-ערב.csv ---
-2025-05-05 09:34:19,699 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,699 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
-2025-05-05 09:34:19,782 - WARNING - --- Unmatched questions in file: סקר_ילדאמא-בוקר.csv ---
-2025-05-05 09:34:19,782 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,803 - WARNING - --- Unmatched questions in file: סקר_ילדאמא-ערב.csv ---
-2025-05-05 09:34:19,803 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,803 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
-2025-05-05 09:34:19,846 - WARNING - --- Unmatched questions in file: סקר_ילדהאבא-בוקר.csv ---
-2025-05-05 09:34:19,846 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,866 - WARNING - --- Unmatched questions in file: סקר_ילדהאבא-ערב.csv ---
-2025-05-05 09:34:19,866 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,866 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
-2025-05-05 09:34:19,914 - WARNING - --- Unmatched questions in file: סקר_ילדהאבא-בוקר.csv ---
-2025-05-05 09:34:19,915 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,966 - WARNING - --- Unmatched questions in file: סקר_ילדהאבא-ערב.csv ---
-2025-05-05 09:34:19,966 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:19,966 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
-2025-05-05 09:34:20,027 - WARNING - --- Unmatched questions in file: סקר_ילדהאמא-בוקר.csv ---
-2025-05-05 09:34:20,027 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:20,049 - WARNING - --- Unmatched questions in file: סקר_ילדהאמא-ערב.csv ---
-2025-05-05 09:34:20,049 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:20,049 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
-2025-05-05 09:34:20,130 - WARNING - --- Unmatched questions in file: סקר_ילדהאמא-בוקר.csv ---
-2025-05-05 09:34:20,130 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:20,153 - WARNING - --- Unmatched questions in file: סקר_ילדהאמא-ערב.csv ---
-2025-05-05 09:34:20,153 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:20,153 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
-2025-05-05 09:34:20,247 - WARNING - --- Unmatched questions in file: סקר_הורה__בוקר.csv ---
-2025-05-05 09:34:20,247 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:20,279 - WARNING - --- Unmatched questions in file: סקר_הורהערב.csv ---
-2025-05-05 09:34:20,279 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:20,444 - WARNING - --- Unmatched questions in file: סקר_הורה__בוקר.csv ---
-2025-05-05 09:34:20,444 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
-2025-05-05 09:34:20,474 - WARNING - --- Unmatched questions in file: סקר_הורהערב.csv ---
-2025-05-05 09:34:20,474 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:51,854 - WARNING - --- Unmatched questions in file: סקר_ילדאבא-בוקר.csv ---
+2025-05-05 10:20:51,854 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:51,877 - WARNING - --- Unmatched questions in file: סקר_ילדאבא-ערב.csv ---
+2025-05-05 10:20:51,877 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:51,877 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
+2025-05-05 10:20:51,957 - WARNING - --- Unmatched questions in file: סקר_ילדאבא-בוקר.csv ---
+2025-05-05 10:20:51,957 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:51,980 - WARNING - --- Unmatched questions in file: סקר_ילדאבא-ערב.csv ---
+2025-05-05 10:20:51,981 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:51,981 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
+2025-05-05 10:20:52,033 - WARNING - --- Unmatched questions in file: סקר_ילדאמא-בוקר.csv ---
+2025-05-05 10:20:52,033 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,057 - WARNING - --- Unmatched questions in file: סקר_ילדאמא-ערב.csv ---
+2025-05-05 10:20:52,057 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,057 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
+2025-05-05 10:20:52,142 - WARNING - --- Unmatched questions in file: סקר_ילדאמא-בוקר.csv ---
+2025-05-05 10:20:52,142 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,168 - WARNING - --- Unmatched questions in file: סקר_ילדאמא-ערב.csv ---
+2025-05-05 10:20:52,168 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,168 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
+2025-05-05 10:20:52,216 - WARNING - --- Unmatched questions in file: סקר_ילדהאבא-בוקר.csv ---
+2025-05-05 10:20:52,217 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,237 - WARNING - --- Unmatched questions in file: סקר_ילדהאבא-ערב.csv ---
+2025-05-05 10:20:52,237 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,237 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
+2025-05-05 10:20:52,290 - WARNING - --- Unmatched questions in file: סקר_ילדהאבא-בוקר.csv ---
+2025-05-05 10:20:52,290 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,311 - WARNING - --- Unmatched questions in file: סקר_ילדהאבא-ערב.csv ---
+2025-05-05 10:20:52,311 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,311 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
+2025-05-05 10:20:52,407 - WARNING - --- Unmatched questions in file: סקר_ילדהאמא-בוקר.csv ---
+2025-05-05 10:20:52,407 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,430 - WARNING - --- Unmatched questions in file: סקר_ילדהאמא-ערב.csv ---
+2025-05-05 10:20:52,430 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,431 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
+2025-05-05 10:20:52,532 - WARNING - --- Unmatched questions in file: סקר_ילדהאמא-בוקר.csv ---
+2025-05-05 10:20:52,532 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,569 - WARNING - --- Unmatched questions in file: סקר_ילדהאמא-ערב.csv ---
+2025-05-05 10:20:52,569 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,569 - WARNING - Unmatched: 'מזכירים לשחק גם במשחק' -> Option: 'None'
+2025-05-05 10:20:52,660 - WARNING - --- Unmatched questions in file: סקר_הורה__בוקר.csv ---
+2025-05-05 10:20:52,660 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,693 - WARNING - --- Unmatched questions in file: סקר_הורהערב.csv ---
+2025-05-05 10:20:52,694 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,850 - WARNING - --- Unmatched questions in file: סקר_הורה__בוקר.csv ---
+2025-05-05 10:20:52,850 - WARNING - Unmatched: 'Question Text' -> Option: 'None'
+2025-05-05 10:20:52,880 - WARNING - --- Unmatched questions in file: סקר_הורהערב.csv ---
+2025-05-05 10:20:52,880 - WARNING - Unmatched: 'Question Text' -> Option: 'None'

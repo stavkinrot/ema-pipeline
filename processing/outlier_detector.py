@@ -15,8 +15,8 @@ class OutlierDetector:
         self.code_col = code_col
         self.results = defaultdict(lambda: defaultdict(list))  # results[pid][row_idx] = [flags]
         self.flagged_cells = defaultdict(list)  # (row_idx, col_label) = reason
-        self.HIGH_THRESHOLD = 5
-        self.LOW_THRESHOLD = 3
+        self.HIGH_THRESHOLD = 4
+        self.LOW_THRESHOLD = 4
 
     def _safe_int(self, val):
         try:
