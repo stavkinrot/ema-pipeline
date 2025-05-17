@@ -1,9 +1,26 @@
-# --- survey_parser.py ---
 import os
 import pandas as pd
 import re
 from datetime import datetime, timedelta
 from processing.labeling import relabel_columns
+import logging
+
+# --- Logging setup ---
+os.makedirs("logs", exist_ok=True)
+
+unmatched_participants_logger = logging.getLogger("unmatched_participants")
+unmatched_participants_logger.setLevel(logging.WARNING)
+up_handler = logging.FileHandler("logs/unmatched_participants.log", mode="w", encoding="utf-8")
+up_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+unmatched_participants_logger.addHandler(up_handler)
+unmatched_participants_logger.propagate = False
+
+unmatched_questions_logger = logging.getLogger("unmatched_questions")
+unmatched_questions_logger.setLevel(logging.WARNING)
+uq_handler = logging.FileHandler("logs/unmatched_questions.log", mode="w", encoding="utf-8")
+uq_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+unmatched_questions_logger.addHandler(uq_handler)
+unmatched_questions_logger.propagate = False
 
 # Global list to store other free-text values
 other_text_participants_by_day = []
@@ -55,23 +72,23 @@ def parse_survey_folder(folder_path, question_map):
     code_col = code_col[0]
     date_col = date_col[0]
 
-    # Clean up code column: remove whitespace, newlines, and anything before #y
     raw_code_series = code_df[code_col].astype(str).str.strip()
     code_df["_raw_code_column_for_logging"] = raw_code_series
 
     cleaned_codes = []
-    with open("unmatched_participants.log", "a", encoding="utf-8") as log_file:
-        for idx, original in raw_code_series.items():
-            match = re.search(r"\d{4}", original)
-            cleaned = f"#{match.group()}" if match else ""
+    for idx, original in raw_code_series.items():
+        match = re.search(r"\d{4}", original)
+        cleaned = f"#{match.group()}" if match else ""
 
-            if cleaned and not re.fullmatch(r"#\d{4}", original.strip()):
-                log_file.write(f"[FIXED CODE] Row {idx}: original='{original}' -> cleaned='{cleaned}'\n")
+        if cleaned and not re.fullmatch(r"#\d{4}", original.strip()):
+            unmatched_participants_logger.warning(
+                f"[FIXED CODE] Row {idx}: original='{original}' -> cleaned='{cleaned}'"
+            )
 
-            cleaned_codes.append(cleaned)
+        cleaned_codes.append(cleaned)
 
     code_df[code_col] = cleaned_codes
-    
+
     valid_code_df = code_df[
         code_df[id_col].notna() & 
         code_df[code_col].str.match(r"#\d{4}")
@@ -79,28 +96,26 @@ def parse_survey_folder(folder_path, question_map):
 
     raw_codes = code_df[code_col].astype(str)
 
-    # Find rows with missing ID or invalid code format
     unmatched_participants = code_df[
         code_df[id_col].isna() |
         raw_codes.isna() |
         ~raw_codes.str.fullmatch(r"#\d{4}")
     ]
 
-    # Append log if any unmatched participants were found
-    if not unmatched_participants.empty:
-        with open("unmatched_participants.log", "a", encoding="utf-8") as f:
-            f.write(f"\n--- Unmatched participants in folder: {folder_path} ---\n")
-            for _, row in unmatched_participants.iterrows():
-                pid = str(row.get(id_col, "")).strip()
-                code = str(row.get("_raw_code_column_for_logging", "")).strip()
+    unmatched_participants_logger.warning(f"--- Unmatched participants in folder: {folder_path} ---")
+    for _, row in unmatched_participants.iterrows():
+        pid = str(row.get(id_col, "")).strip()
+        code = str(row.get("_raw_code_column_for_logging", "")).strip()
 
-                reason = []
-                if not pid or pd.isna(pid):
-                    reason.append("missing ID")
-                if not code or not re.fullmatch(r"#\d{4}", code):
-                    reason.append("invalid code")
+        reason = []
+        if not pid or pd.isna(pid):
+            reason.append("missing ID")
+        if not code or not re.fullmatch(r"#\d{4}", code):
+            reason.append("invalid code")
 
-                f.write(f"ID: {pid}, Code: {code}, Reason: {', '.join(reason)}\n")
+        unmatched_participants_logger.warning(
+            f"ID: {pid}, Code: {code}, Reason: {', '.join(reason)}"
+        )
 
     id_to_code = dict(zip(valid_code_df[id_col], valid_code_df[code_col]))
     code_to_id = {v: k for k, v in id_to_code.items()}
@@ -126,10 +141,9 @@ def parse_survey_folder(folder_path, question_map):
         column_map, unmatched = relabel_columns(question_texts, question_types, subquestion_texts, question_map)
 
         if unmatched:
-            with open("unmatched_questions.log", "a", encoding="utf-8") as log:
-                log.write(f"\n--- Unmatched in {file} ---\n")
-                for qtext, opt in unmatched:
-                    log.write(f"Unmatched: {qtext} -> {opt}\n")
+            unmatched_questions_logger.warning(f"--- Unmatched questions in file: {file} ---")
+            for qtext, opt in unmatched:
+                unmatched_questions_logger.warning(f"Unmatched: '{qtext}' -> Option: '{opt}'")
 
         response_df = pd.read_csv(full_path, skiprows=3, encoding="utf-8-sig")
 
@@ -137,7 +151,9 @@ def parse_survey_folder(folder_path, question_map):
 
         df = pd.DataFrame()
         df["Participant ID"] = response_df["Participant ID"]
-        df["Start Date"] = pd.to_datetime(response_df["Start Date"], errors="coerce")
+        df["Start Date"] = pd.to_datetime(response_df["Start Date"], errors="coerce", format="%m/%d/%Y %I:%M%p")
+        df["End Date"] = pd.to_datetime(response_df["End Date"], errors="coerce", format="%m/%d/%Y %I:%M%p")
+        df["timestamp"] = df[["Start Date", "End Date"]].mean(axis=1, numeric_only=False)
         df["participant_code"] = df["Participant ID"].map(id_to_code)
         df["time_of_day"] = time_of_day
 
@@ -151,7 +167,7 @@ def parse_survey_folder(folder_path, question_map):
     result_rows = []
 
     for participant, p_df in combined.groupby("participant_code"):
-        p_df = p_df.sort_values("Start Date")
+        p_df = p_df.sort_values("timestamp")
         if participant not in code_to_start_day:
             continue
 
@@ -168,7 +184,7 @@ def parse_survey_folder(folder_path, question_map):
                 expected_timepoints[(survey_date, tod)] = True
                 row_dict = {
                     k: v for k, v in row.items()
-                    if k not in ["Start Date"]
+                    if k not in ["Start Date", "End Date"]
                 }
                 row_dict["day"] = expected_dates.index(survey_date) + 1
                 row_dict["first_day"] = start_date
@@ -183,14 +199,14 @@ def parse_survey_folder(folder_path, question_map):
                         "participant_code": participant,
                         "first_day": start_date,
                         "day": i + 1,
-                        "time_of_day": tod
+                        "time_of_day": tod,
+                        "timestamp": pd.NaT
                     })
 
     result_df = pd.DataFrame(result_rows)
 
-    metadata_cols = {"Participant ID", "participant_code", "first_day", "day", "time_of_day"}
+    metadata_cols = {"Participant ID", "participant_code", "first_day", "day", "time_of_day", "timestamp"}
 
-    # --- Handle "other" text fields ---
     for colname, label in [("C_Agr_other", "Children"), ("P_Agr_other", "Parent")]:
         if colname in result_df.columns:
             result_df[colname] = result_df[colname].apply(lambda x: "" if pd.isna(x) else str(x).strip())
@@ -206,7 +222,7 @@ def parse_survey_folder(folder_path, question_map):
                         "text": text_value
                     })
 
-    base_cols = ["Participant ID", "participant_code", "first_day", "day", "time_of_day"]
+    base_cols = ["Participant ID", "participant_code", "first_day", "day", "time_of_day", "timestamp"]
     other_cols = [col for col in result_df.columns if col not in base_cols]
     result_df = result_df[base_cols + sorted(other_cols)]
     result_df = result_df.sort_values(["participant_code", "day", "time_of_day"])
@@ -218,9 +234,9 @@ def save_other_text_mapping(output_csv_path):
     for record in other_text_participants_by_day:
         text = record.get("text")
         if isinstance(text, float) and pd.isna(text):
-            continue  # skip NaN
+            continue
         if not text or str(text).strip() == "":
-            continue  # skip empty strings
+            continue
         records.append({
             "Participant ID": record["Participant ID"],
             "participant_code": record["participant_code"],
@@ -235,3 +251,47 @@ def save_other_text_mapping(output_csv_path):
         print(f"[INFO] Saved {len(df)} valid free-text responses to {output_csv_path}")
     else:
         print("[INFO] No valid free-text 'Other' responses found.")
+
+def merge_surveys(children_df: pd.DataFrame, parents_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merges children and parent survey responses into a single wide-format DataFrame.
+    Each row represents a matched survey from a child and their corresponding parent
+    (same day, time of day, and matching participant codes).
+
+    Returns:
+        A DataFrame with suffixes `_child` and `_parent` for each side's responses.
+    """
+    children_df["merge_key"] = children_df.apply(
+        lambda row: (row["participant_code"], row["day"], row["time_of_day"]), axis=1
+    )
+
+    parents_df["merge_key"] = parents_df.apply(
+        lambda row: (f"#{int(row['participant_code'][1:]) + 1:04}", row["day"], row["time_of_day"]), axis=1
+    )
+
+    merged_df = pd.merge(
+        children_df,
+        parents_df,
+        on="merge_key",
+        suffixes=("_child", "_parent")
+    )
+
+    # Add PC_Time_Gap column
+    def compute_time_gap(row):
+        ts_child = row.get("timestamp_child")
+        ts_parent = row.get("timestamp_parent")
+
+        if pd.isna(ts_child) or pd.isna(ts_parent):
+            return ""
+        
+        gap = abs((ts_child - ts_parent).total_seconds()) / 60  # in minutes
+        return "Yes" if gap > 15 else "No"
+
+    merged_df["PC_Time_Gap"] = merged_df.apply(compute_time_gap, axis=1)
+
+    # Ensure it's the last column
+    cols = list(merged_df.columns)
+    cols.remove("PC_Time_Gap")
+    merged_df = merged_df[cols + ["PC_Time_Gap"]]
+
+    return merged_df

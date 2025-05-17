@@ -3,23 +3,28 @@
 import os
 
 EXCLUDE_DIRS = {'.git', '__pycache__', '.venv', 'venv', '.mypy_cache', '.pytest_cache'}
+EXCLUDE_FILES = {'.DS_Store'}
 
 def generate_tree(root_path, output_file):
     with open(output_file, 'w', encoding='utf-8') as f:
-        for root, dirs, files in os.walk(root_path):
-            rel_root = os.path.relpath(root, root_path)
-            if any(part in EXCLUDE_DIRS for part in rel_root.split(os.sep)):
-                continue
+        # Files in root
+        root_files = [f for f in os.listdir(root_path)
+                      if os.path.isfile(os.path.join(root_path, f)) and f not in EXCLUDE_FILES]
+        for i, file in enumerate(sorted(root_files)):
+            marker = '└── ' if i == len(root_files) - 1 else '├── '
+            f.write(f"{marker}{file}\n")
 
-            level = rel_root.count(os.sep) if rel_root != '.' else 0
-            indent = '│   ' * level + '├── '
-            f.write(f"{indent}{os.path.basename(root)}/\n")
-
-            sub_indent = '│   ' * (level + 1)
-            visible_files = [f for f in files if not f.startswith('.')]
-            for i, file in enumerate(visible_files):
-                marker = '└── ' if i == len(visible_files) - 1 else '├── '
-                f.write(f"{sub_indent}{marker}{file}\n")
+        # First-level directories
+        dirs = [d for d in os.listdir(root_path)
+                if os.path.isdir(os.path.join(root_path, d)) and d not in EXCLUDE_DIRS]
+        for d in sorted(dirs):
+            f.write(f"├── {d}/\n")
+            dir_path = os.path.join(root_path, d)
+            sub_files = [f for f in os.listdir(dir_path)
+                         if os.path.isfile(os.path.join(dir_path, f)) and f not in EXCLUDE_FILES]
+            for i, file in enumerate(sorted(sub_files)):
+                marker = '└── ' if i == len(sub_files) - 1 else '├── '
+                f.write(f"│   {marker}{file}\n")
 
 if __name__ == "__main__":
     generate_tree(".", "project_structure.txt")
