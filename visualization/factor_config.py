@@ -5,10 +5,6 @@ FACTOR_QUESTIONS = {
         "child": ["C_Inv_Help", "C_Inv_Fun", "C_Inv_Talk"],
         "parent": ["P_Inv_Help", "P_Inv_Fun", "P_Inv_Talk"]
     },
-    "Inconsistent Discipline": {
-        "child": ["C_Discipline"],
-        "parent": ["P_Discipline"]
-    },
     "Positive Parenting": {
         "child": ["C_Positive"],
         "parent": ["P_Positive"]
@@ -51,7 +47,7 @@ FACTOR_QUESTIONS = {
     },
     "Authoritarian Parenting": {
         "child": ["C_PS_GotAngry"],
-        "parent": ["P_PS_GotAngry", "P_PS_Confident"],
+        "parent": ["P_PS_GotAngry"],
     },
     "Authoritative Parenting": {
         "child": ["C_PS_Patient"],
