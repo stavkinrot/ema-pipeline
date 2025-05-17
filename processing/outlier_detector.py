@@ -70,39 +70,46 @@ class OutlierDetector:
                         self.flagged_cells[(idx, q1)] = 'compatible_mismatch'
                         self.flagged_cells[(idx, q2)] = 'compatible_mismatch'
 
-    def detect_time_mismatches(self):
-        print("[DEBUG] Running parent-child time mismatch detection")
-        rows_by_key = {}
-        for idx, row in self.df.iterrows():
-            key = (row[self.code_col], row['day'], row['time_of_day'])
-            rows_by_key[key] = (idx, row)
+    def detect_time_mismatches(parents_df, children_df, flagged_cells_parents, flagged_cells_children):
+        print("[INFO] Checking for parent-child timestamp mismatches...")
 
-        for (code, day, tod), (idx, child_row) in rows_by_key.items():
+        # Index parents by (code, day, tod) for quick lookup
+        parents_index = {
+            (row["participant_code"], row["day"], row["time_of_day"]): (idx, row)
+            for idx, row in parents_df.iterrows()
+        }
+
+        for child_idx, child_row in children_df.iterrows():
             try:
-                if int(code[1:]) % 2 != 0:
-                    continue  # skip parents
-                parent_code = f"#{int(code[1:]) + 1:04}"
-                parent_key = (parent_code, day, tod)
-                if parent_key not in rows_by_key:
+                child_code = child_row["participant_code"]
+                if not child_code.startswith("#") or not child_code[1:].isdigit():
                     continue
-                parent_idx, parent_row = rows_by_key[parent_key]
 
-                # Force timestamp parsing
-                print("IM HERE")
+                child_id = int(child_code[1:])
+                if child_id % 2 != 0:
+                    continue  # only even codes are children
+
+                parent_code = f"#{child_id - 1:04}"
+                key = (parent_code, child_row["day"], child_row["time_of_day"])
+                if key not in parents_index:
+                    continue
+
+                parent_idx, parent_row = parents_index[key]
+
+                # Parse timestamps
                 child_ts = pd.to_datetime(child_row.get("timestamp"), errors="coerce")
                 parent_ts = pd.to_datetime(parent_row.get("timestamp"), errors="coerce")
 
                 if pd.isna(child_ts) or pd.isna(parent_ts):
-                    print(f"[DEBUG] Missing timestamp(s) for day {day}, {tod} between {code} and {parent_code}")
                     continue
 
-                delta = abs(parent_ts - child_ts)
-                print(f"[DEBUG] Time difference on day {day}, {tod} between {code} and {parent_code}: {delta}")
+                delta = abs(child_ts - parent_ts)
                 if delta > timedelta(minutes=15):
-                    self.flagged_cells[(idx, "timestamp")] = 'time_mismatch'
-                    self.flagged_cells[(parent_idx, "timestamp")] = 'time_mismatch'
+                    flagged_cells_children[(child_idx, "timestamp")] = "time_mismatch"
+                    flagged_cells_parents[(parent_idx, "timestamp")] = "time_mismatch"
+
             except Exception as e:
-                print(f"[DEBUG] Exception in mismatch detection for {code}: {e}")
+                print(f"[WARN] Failed to compare child {child_code}: {e}")
                 continue
 
 
@@ -112,7 +119,7 @@ class OutlierDetector:
         self.detect_edge_only()
         self.detect_contradictions()
         self.detect_incompatibilities()
-        self.detect_time_mismatches()
+        # self.detect_time_mismatches()
 
     def highlight_in_excel(self, xlsx_path_in, xlsx_path_out):
         wb = load_workbook(xlsx_path_in)

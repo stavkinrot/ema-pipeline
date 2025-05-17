@@ -16,6 +16,4 @@ ema_pipeline/
 │   ├── survey_parser.py          # parse survey files
 │   └── merge.py                  # final merge & output
 │
-├── tests/
-│   └── test_pipeline.py          # Optional: test each step
 └── README.md                

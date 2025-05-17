@@ -3,7 +3,7 @@ import os
 import pandas as pd
 from processing.extract import extract_zips
 from processing.labeling import load_labeling_map
-from processing.survey_parser import parse_survey_folder, save_other_text_mapping
+from processing.survey_parser import parse_survey_folder, save_other_text_mapping, merge_surveys
 from processing.outlier_detector import OutlierDetector
 
 
@@ -15,6 +15,7 @@ c_labeling_path = "data/children_labeling.xlsx"
 output_children_csv = "output/children_surveys.csv"
 output_parents_csv = "output/parents_surveys.csv"
 output_other_texts_csv = "output/other_text_responses.csv"
+output_merged_xlsx = "output/merged_surveys.xlsx"
 output_children_xlsx = output_children_csv.replace(".csv", ".xlsx")
 output_parents_xlsx = output_parents_csv.replace(".csv", ".xlsx")
 
@@ -61,6 +62,11 @@ def main():
         detector = OutlierDetector(parents_df)
         detector.detect_outliers()
         detector.highlight_in_excel(output_parents_xlsx, output_parents_xlsx)
+    
+    if parent_dfs and children_dfs:
+        merged_df = merge_surveys(children_df, parents_df)
+        merged_df.to_excel(output_merged_xlsx, index=False)
+        print(f"[INFO] Saved merged wide-format survey to {output_merged_xlsx}")
 
     # Save free-text "Other" answers
     save_other_text_mapping(output_other_texts_csv)

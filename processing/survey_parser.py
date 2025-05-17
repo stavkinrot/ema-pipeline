@@ -251,3 +251,29 @@ def save_other_text_mapping(output_csv_path):
         print(f"[INFO] Saved {len(df)} valid free-text responses to {output_csv_path}")
     else:
         print("[INFO] No valid free-text 'Other' responses found.")
+
+def merge_surveys(children_df: pd.DataFrame, parents_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merges children and parent survey responses into a single wide-format DataFrame.
+    Each row represents a matched survey from a child and their corresponding parent
+    (same day, time of day, and matching participant codes).
+
+    Returns:
+        A DataFrame with suffixes `_child` and `_parent` for each side's responses.
+    """
+    children_df["merge_key"] = children_df.apply(
+        lambda row: (row["participant_code"], row["day"], row["time_of_day"]), axis=1
+    )
+
+    parents_df["merge_key"] = parents_df.apply(
+        lambda row: (f"#{int(row['participant_code'][1:]) + 1:04}", row["day"], row["time_of_day"]), axis=1
+    )
+
+    merged_df = pd.merge(
+        children_df,
+        parents_df,
+        on="merge_key",
+        suffixes=("_child", "_parent")
+    )
+
+    return merged_df
