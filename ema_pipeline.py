@@ -15,7 +15,7 @@ c_labeling_path = "data/children_labeling.xlsx"
 output_children_csv = "output/children_surveys.csv"
 output_parents_csv = "output/parents_surveys.csv"
 output_other_texts_csv = "output/other_text_responses.csv"
-output_merged_xlsx = "output/merged_surveys.xlsx"
+output_merged_csv = "output/merged_surveys.csv"
 output_children_xlsx = output_children_csv.replace(".csv", ".xlsx")
 output_parents_xlsx = output_parents_csv.replace(".csv", ".xlsx")
 
@@ -65,8 +65,9 @@ def main():
     
     if parent_dfs and children_dfs:
         merged_df = merge_surveys(children_df, parents_df)
-        merged_df.to_excel(output_merged_xlsx, index=False)
-        print(f"[INFO] Saved merged wide-format survey to {output_merged_xlsx}")
+        merged_df.to_csv(output_merged_csv, index=False, encoding="utf-8-sig")
+        print(f"[INFO] Saved merged wide-format survey to {output_merged_csv}")
+
 
     # Save free-text "Other" answers
     save_other_text_mapping(output_other_texts_csv)

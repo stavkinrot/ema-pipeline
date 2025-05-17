@@ -276,4 +276,22 @@ def merge_surveys(children_df: pd.DataFrame, parents_df: pd.DataFrame) -> pd.Dat
         suffixes=("_child", "_parent")
     )
 
+    # Add PC_Time_Gap column
+    def compute_time_gap(row):
+        ts_child = row.get("timestamp_child")
+        ts_parent = row.get("timestamp_parent")
+
+        if pd.isna(ts_child) or pd.isna(ts_parent):
+            return ""
+        
+        gap = abs((ts_child - ts_parent).total_seconds()) / 60  # in minutes
+        return "Yes" if gap > 15 else "No"
+
+    merged_df["PC_Time_Gap"] = merged_df.apply(compute_time_gap, axis=1)
+
+    # Ensure it's the last column
+    cols = list(merged_df.columns)
+    cols.remove("PC_Time_Gap")
+    merged_df = merged_df[cols + ["PC_Time_Gap"]]
+
     return merged_df
