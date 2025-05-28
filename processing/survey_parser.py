@@ -25,14 +25,6 @@ unmatched_questions_logger.propagate = False
 # Global list to store other free-text values
 other_text_participants_by_day = []
 
-def is_example_column(column_name):
-    return "אפשר גם להקליט תשובה" in column_name
-
-def best_partial_match(column_name, question_map):
-    for hebrew, english in question_map.items():
-        if hebrew.strip() in column_name.strip():
-            return english
-    return None
 
 def get_expected_dates(start_date, skip_weekends):
     expected_dates = []
