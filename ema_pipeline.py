@@ -20,7 +20,7 @@ output_children_xlsx = output_children_csv.replace(".csv", ".xlsx")
 output_parents_xlsx = output_parents_csv.replace(".csv", ".xlsx")
 
 def main():
-    # extract_zips(input_zip_folder, extracted_folder)  # Optional step
+    extract_zips(input_zip_folder, extracted_folder)  # Optional step
 
     parent_map = load_labeling_map(p_labeling_path)
     child_map = load_labeling_map(c_labeling_path)
