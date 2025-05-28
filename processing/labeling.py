@@ -1,14 +1,65 @@
 import pandas as pd
+import unicodedata
+import re
+
+def clean(text):
+    if not isinstance(text, str):
+        return ""
+    text = unicodedata.normalize("NFKC", text)
+    text = text.replace("\u200f", "")           # RTL
+    text = text.replace("\xa0", " ")            # non-breaking space
+    text = text.replace("\u202c", "").replace("\u202a", "")  # directional
+    text = re.sub(r"^[^\wא-ת]+", "", text)      # remove leading punctuation like colons
+    text = re.sub(r"[\[\]\"\'”“׳׳]", "", text)  # brackets, quotes
+    text = re.sub(r"\s+", " ", text)            # collapse multiple spaces
+    text = text.strip()
+
+    # Normalize unbalanced parentheses
+    if text.count("(") > text.count(")"):
+        text += ")"
+    elif text.count(")") > text.count("("):
+        text = "(" + text
+
+    return text
 
 def load_labeling_map(labeling_path):
-    """
-    Loads the question labeling Excel and returns two dictionaries:
-    - parent_map: Hebrew → English (parent surveys)
-    - child_map: Hebrew → English (child surveys)
-    """
-    df = pd.read_excel(labeling_path, sheet_name=0)
+    df = pd.read_excel(labeling_path, engine="openpyxl")
+    mapping = {}
 
-    parent_map = dict(zip(df['EMA Item - Parent'].dropna(), df['Parent Label']))
-    child_map = dict(zip(df['EMA Item - Child'].dropna(), df['Child Label']))
+    for _, row in df.iterrows():
+        raw_text = row.get("hebrew_text", "")
+        raw_option = row.get("hebrew_option", "")
+        hebrew_text = clean(raw_text)
+        hebrew_option = clean(raw_option)
+        label = str(row.get("label", "")).strip()
 
-    return parent_map, child_map
+        if hebrew_text and label:
+            key = (hebrew_text, hebrew_option if hebrew_option else None)
+            mapping[key] = label
+
+    return mapping
+
+def relabel_columns(question_texts, question_types, subquestion_texts, question_map):
+    mapping = {}
+    unmatched = []
+
+    for i in range(len(question_texts)):
+        q_text = clean(question_texts[i])
+        q_type = clean(question_types[i])
+        sub_text = clean(subquestion_texts[i])
+
+        key = (q_text, sub_text) if q_type == "Multiple selection" else (q_text, None)
+        label = question_map.get(key)
+
+        if label:
+            mapping[i] = label
+        else:
+            if key[0] == "מאז הסקר האחרון, הילד/ה שלי התפרץ/ה בכעס באחת או יותר מהדרכים הבאות":
+                with open("debug_subtext.log", "a", encoding="utf-8") as f:
+                    f.write("=== Raw Char Comparison ===\n")
+                    for i, (a, b) in enumerate(zip(sub_text, "אחר (בבקשה לפרט)")):
+                        f.write(f"pos {i}: actual '{a}' ({ord(a)}) vs expected '{b}' ({ord(b)})\n")
+                    f.write("\n")
+            unmatched.append(key)
+
+    return mapping, unmatched
