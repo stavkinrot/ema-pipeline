@@ -5,10 +5,10 @@ FACTOR_QUESTIONS = {
         "child": ["C_Inv_Help", "C_Inv_Fun", "C_Inv_Talk"],
         "parent": ["P_Inv_Help", "P_Inv_Fun", "P_Inv_Talk"]
     },
-    "Positive Parenting": {
-        "child": ["C_Positive"],
-        "parent": ["P_Positive"]
-    },
+    # "Positive Parenting": {
+    #     "child": ["C_Positive"],
+    #     "parent": ["P_Positive"]
+    # },
     "Anxiety": {
         "child": ["C_Anx_Worry", "C_Anx_now"],
         "parent": ["P_Anx_Worry", "P_Anx_now"]
@@ -25,18 +25,18 @@ FACTOR_QUESTIONS = {
         "child": ["C_PC_Annoy", "C_PC_Criticism"],
         "parent": ["P_PC_Annoy", "P_PC_Criticism"]
     },
-    "Parent-Child Connection": {
-        "child": ["C_PC_Sharing"],
-        "parent": ["P_PC_Sharing"]
-    },
+    # "Parent-Child Connection": {
+    #     "child": ["C_PC_Sharing"],
+    #     "parent": ["P_PC_Sharing"]
+    # },
     "Depression": {
         "child": ["C_Mood_Sad"],
         "parent": ["P_Mood_Sad"]
     },
-    "Mood - Good": {
-        "child": ["C_Mood_Good"],
-        "parent": ["P_Mood_Good"]
-    },
+    # "Mood - Good": {
+    #     "child": ["C_Mood_Good"],
+    #     "parent": ["P_Mood_Good"]
+    # },
     "ADHD Symptoms": {
         "child": ["C_ADHD_Distracted", "C_ADHD_Restless"],
         "parent": ["P_ADHD_Distracted", "P_ADHD_Restless"]
@@ -53,8 +53,8 @@ FACTOR_QUESTIONS = {
         "child": ["C_PS_Patient"],
         "parent": ["P_PS_Patient"],
     },
-    "Permissive Parenting": {
-        "child": ["C_PS_Agree"],
-        "parent": ["P_PS_Agree"],
-    },
+    # "Permissive Parenting": {
+    #     "child": ["C_PS_Agree"],
+    #     "parent": ["P_PS_Agree"],
+    # },
 }

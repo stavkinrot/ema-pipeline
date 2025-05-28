@@ -37,9 +37,9 @@ def plot_aggression(df):
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
     axes[0].pie(pie1_values, labels=pie1_labels, autopct="%1.1f%%", startangle=90, colors=pie1_colors)
-    axes[0].set_title("Aggression Presence in Surveys")
+    axes[0].set_title(f"Aggression Presence in Surveys (N={len(aggr_df)})")
     axes[1].pie(pie2_values, labels=pie2_labels_ordered, autopct="%1.1f%%", startangle=90, colors=pie2_colors)
-    axes[1].set_title("Types of Aggression (among 'Yes')")
+    axes[1].set_title(f"Types of Aggression (N={len(aggr_only_df)})")
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, "aggression_pie_charts.png"), dpi=300)
     plt.close()
@@ -49,7 +49,9 @@ def plot_aggression(df):
 def plot_means_by_irritability(df, ari_df):
     ari_df = ari_df.rename(columns={"participant number": "participant_code", "score": "score"})
     ari_df["participant_code"] = ari_df["participant_code"].astype(str).str.strip()
-    ari_df["group"] = pd.to_numeric(ari_df["score"], errors="coerce").apply(lambda x: "Irritable" if pd.notna(x) and x >= 3 else "Non-Irritable")
+    ari_df["group"] = pd.to_numeric(ari_df["score"], errors="coerce").apply(
+        lambda x: "Irritable" if pd.notna(x) and x >= 3 else "Non-Irritable"
+    )
 
     df["participant_code"] = df["participant_code_parent"].astype(str).str.strip()
     merged = df.merge(ari_df[["participant_code", "group"]], on="participant_code", how="inner")
@@ -62,11 +64,11 @@ def plot_means_by_irritability(df, ari_df):
                 out[factor] = data[cols].select_dtypes(include='number').mean(axis=1, skipna=True)
         return out
 
-    def plot_grouped_means(gmeans, title, filename):
+    def plot_grouped_means(gmeans, title, filename, group_counts):
         fig, ax = plt.subplots(figsize=(max(10, len(gmeans) * 0.5), 6))
         x = range(len(gmeans))
-        ax.bar([i - 0.175 for i in x], gmeans.get("Irritable", [0]*len(x)), width=0.35, label="Irritable", color=PALETTE[0])
-        ax.bar([i + 0.175 for i in x], gmeans.get("Non-Irritable", [0]*len(x)), width=0.35, label="Non-Irritable", color=PALETTE[3])
+        ax.bar([i - 0.175 for i in x], gmeans.get("Irritable", [0]*len(x)), width=0.35, label=f"Irritable (N={group_counts.get('Irritable', 0)})", color=PALETTE[0])
+        ax.bar([i + 0.175 for i in x], gmeans.get("Non-Irritable", [0]*len(x)), width=0.35, label=f"Non-Irritable (N={group_counts.get('Non-Irritable', 0)})", color=PALETTE[4])
         ax.set_xticks(x)
         ax.set_xticklabels(gmeans.index, rotation=45, ha="right")
         ax.set_ylabel("Mean Score")
@@ -81,7 +83,10 @@ def plot_means_by_irritability(df, ari_df):
         factor_df = compute_factor_scores(merged, role=role)
         factor_df["group"] = merged["group"]
         grouped = factor_df.groupby("group").mean().T
-        plot_grouped_means(grouped, f"{label} Factor Means by Irritability", f"factor_means_{label.lower()}.png")
+        group_counts = factor_df["group"].value_counts().to_dict()
+        title = f"{label} Factor Means by Irritability"
+        filename = f"factor_means_{label.lower()}.png"
+        plot_grouped_means(grouped, title, filename, group_counts)
 
 
 def plot_factor_over_time(df, ari_df, factor_name):
@@ -101,11 +106,16 @@ def plot_factor_over_time(df, ari_df, factor_name):
     def plot_with_sem(data, title, fname):
         grouped = data.groupby(["timepoint", "group"])["factor_score"]
         means, sems = grouped.mean().unstack(), grouped.sem().unstack()
+
+        group_counts = data.groupby("group")["participant_code"].nunique()
+
         plt.figure(figsize=(12, 6))
-        for grp, clr in zip(["Irritable", "Non-Irritable"], [PALETTE[0], PALETTE[3]]):
+        for grp, clr in zip(["Irritable", "Non-Irritable"], [PALETTE[0], PALETTE[4]]):
             if grp in means:
-                plt.plot(means.index, means[grp], label=grp, marker='o', color=clr)
+                label = f"{grp} (N={group_counts.get(grp, 0)})"
+                plt.plot(means.index, means[grp], label=label, marker='o', color=clr)
                 plt.fill_between(means.index, means[grp] - sems[grp], means[grp] + sems[grp], color=clr, alpha=0.2)
+
         plt.title(title)
         plt.ylabel("Average Factor Score")
         plt.xticks(rotation=45)
@@ -116,20 +126,21 @@ def plot_factor_over_time(df, ari_df, factor_name):
         plt.close()
         print(f"[INFO] Saved plot to {path}")
 
+
     plot_with_sem(
         merged,
         f"{factor_name} Over Time by Irritability",
         f"factor_trend_{factor_name.replace(' ', '_').lower()}_raw.png"
     )
 
-    norm_df = merged.copy()
-    norm_df["factor_score"] = norm_df.groupby("participant_code")["factor_score"].transform(
-        lambda x: (x - x.mean()) / x.std(ddof=0))
-    plot_with_sem(
-        norm_df,
-        f"{factor_name} Over Time (Normalized) by Irritability",
-        f"factor_trend_{factor_name.replace(' ', '_').lower()}_normalized.png"
-    )
+    # norm_df = merged.copy()
+    # norm_df["factor_score"] = norm_df.groupby("participant_code")["factor_score"].transform(
+    #     lambda x: (x - x.mean()) / x.std(ddof=0))
+    # plot_with_sem(
+    #     norm_df,
+    #     f"{factor_name} Over Time (Normalized) by Irritability",
+    #     f"factor_trend_{factor_name.replace(' ', '_').lower()}_normalized.png"
+    # )
 
 
 def plot_correlation_matrix(df, ari_df):
@@ -162,7 +173,7 @@ def plot_correlation_matrix(df, ari_df):
             text = f"{corr.iloc[i, j]:.2f}" if not pd.isna(corr.iloc[i, j]) else ""
             plt.text(j, i, text, ha="center", va="center", fontsize=7, color="black")
 
-    plt.title("Correlation Matrix: Child & Parent Factor Scores")
+    plt.title(f"Correlation Matrix: Child & Parent Factor Scores (N={merged['participant_code'].nunique()})")
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, "factor_correlation_matrix.png"), dpi=300)
     plt.close()
