@@ -13,7 +13,7 @@ FACTOR_QUESTIONS = {
         "child": ["C_Anx_Worry", "C_Anx_now"],
         "parent": ["P_Anx_Worry", "P_Anx_now"]
     },
-    "Aggression": {
+    "Anger": {
         "child": ["C_Agr_NotAsWant"],
         "parent": ["P_Agr_NotAsWant"]
     },
