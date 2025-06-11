@@ -63,8 +63,8 @@ def apply_modern_mpl_style(ax, *, xlabel=None, ylabel=None, title=None, xtick_la
     if legend:
         legend.facecolor = 'white',
         legend.edgecolor = 'lightgray',
-        legend.alpha = 0.3,
-        legend.fontsize = 7
+        legend.alpha = 0.2,
+        legend.fontsize = 5
 
 def get_image_download_link(fig, filename="plot.png"):
     buf = BytesIO()
@@ -215,7 +215,7 @@ def plot_means_by_irritability(df, ari_df, selected_questions):
 
     figs = []
 
-    for role, label in zip(["child", "parent"], ["Child", "Parent"]):
+    for role, label in zip(["child", "parent"], ["Children", "Parents"]):
         role_prefix = "C_" if role == "child" else "P_"
         role_cols = [col for col in selected_questions if col.startswith(role_prefix)]
         if not role_cols:
@@ -270,7 +270,7 @@ def plot_means_by_irritability(df, ari_df, selected_questions):
         ax.bar(x + width / 2, grouped_mat.get("Non-Irritable", [0]*len(x)),
                width, label=f"Non-Irritable (N={n_per_group.get('Non-Irritable', 0)})", color=PALETTE[4])
 
-        ax.legend(loc="upper right")
+        ax.legend(loc="best")
         apply_modern_mpl_style(
             ax,
             xlabel="Question",

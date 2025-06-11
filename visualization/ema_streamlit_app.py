@@ -96,8 +96,8 @@ if vis_type == "Aggression Pie Charts":
 elif vis_type == "Mean Scores by Group":
     st.subheader("Mean Scores by Irritability Group")
 
-    group = st.radio("Select group", ["Child", "Parent"])
-    prefix = "C_" if group == "Child" else "P_"
+    group = st.radio("Select group", ["Children", "Parents"])
+    prefix = "C_" if group == "Children" else "P_"
 
     all_scale_questions = [f"{prefix}{q}" for q in SCALE_QUESTIONS if f"{prefix}{q}" in df.columns]
     default_included = [q for q in INCLUDED_QUESTIONS if q.startswith(prefix) and q in all_scale_questions]
