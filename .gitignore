@@ -1,0 +1,5 @@
+.vscode
+logs/
+generate_tree.py
+pipleline_structure.txt
+project_structure.txt

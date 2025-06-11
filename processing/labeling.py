@@ -63,3 +63,17 @@ def relabel_columns(question_texts, question_types, subquestion_texts, question_
             unmatched.append(key)
 
     return mapping, unmatched
+
+def build_label_to_hebrew_map(labeling_path):
+    import pandas as pd
+    df = pd.read_excel(labeling_path, engine="openpyxl")
+    df.columns = df.columns.str.strip()  # remove accidental spaces
+
+    label_to_hebrew = {}
+    for _, row in df.iterrows():
+        label = str(row.get("label", "")).strip()
+        hebrew = str(row.get("hebrew_text", "")).strip()
+        if label and hebrew:
+            label_to_hebrew[label] = hebrew
+
+    return label_to_hebrew

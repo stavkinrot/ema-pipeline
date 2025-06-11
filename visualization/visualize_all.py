@@ -8,10 +8,11 @@ from included_questions import INCLUDED_QUESTIONS
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # === Shared Config ===
-DATA_PATH = "output/merged_surveys.csv"
-ARI_PATH = "data/ARI.xlsx"
-AVG_PATH = "output/child_parent_averages.csv"
-OUTPUT_DIR = "output/plots"
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_PATH = os.path.join(PROJECT_ROOT, "output", "merged_surveys.csv")
+ARI_PATH = os.path.join(PROJECT_ROOT, "data", "ARI.xlsx")
+AVG_PATH = os.path.join(PROJECT_ROOT, "output", "child_parent_averages.csv")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "plots")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -82,8 +83,10 @@ def plot_aggression(df, ari_df):
             n = (participant_aggr['group'] == group).sum()
             aggression_pct = aggr_share.get(group, 0.0)
             n_total = (avg_df['group'] == group).sum()
-            axes[idx].set_title(f"{group} Group\n(N={n_total}, Aggressive={n}, Avg Agg: {aggression_pct:.1f}%)")
-
+            axes[idx].set_title(
+    f"{group} Group (n={n})\n"
+    f"Total participants: {n_total}, Avg aggression rate: {aggression_pct:.1f}%"
+)
     plt.suptitle("Aggression Type Distribution by Irritability Group")
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, "aggression_pie_by_group.png"), dpi=300)
