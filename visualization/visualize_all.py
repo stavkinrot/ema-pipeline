@@ -199,7 +199,7 @@ def plot_means_by_irritability(df, ari_df, selected_questions):
             xaxis_tickangle=-45,
             margin=dict(t=60, b=100),
             width=900,
-            height=450
+            height=300
         )
 
         # Plotly export version

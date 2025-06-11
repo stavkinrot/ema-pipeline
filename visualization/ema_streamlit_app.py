@@ -127,7 +127,7 @@ elif vis_type == "Mean Scores by Group":
         for label, fig_plotly, fig_export, fig_mat in figs:
             if label == group:
                 st.plotly_chart(fig_plotly, use_container_width=True)
-                download_buttons(fig_export, fig_mat, filename_prefix=f"mean_scores_{group.lower()}")
+                download_buttons(fig_plotly, fig_mat, filename_prefix=f"mean_scores_{group.lower()}")
     else:
         st.warning("Please select at least one question.")
 
