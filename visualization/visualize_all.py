@@ -1,5 +1,6 @@
 from io import BytesIO
 import sys
+from matplotlib.ticker import MultipleLocator
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
@@ -23,6 +24,48 @@ OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "plots")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # === Export Helpers ===
+def apply_modern_mpl_style(ax, *, xlabel=None, ylabel=None, title=None, xtick_labels=None):
+    darkgray = "#4B4B4B"
+    from matplotlib.ticker import MultipleLocator
+
+    # Axis labels and title
+    if title:
+        ax.set_title(title, pad=10)
+    if xlabel:
+        ax.set_xlabel(xlabel, fontdict={'fontsize': 11, 'color': darkgray})
+    if ylabel:
+        ax.set_ylabel(ylabel, fontdict={'fontsize': 11, 'color': darkgray})
+
+    # Tick styling
+    ax.tick_params(axis='x', labelsize=9, colors=darkgray)
+    ax.tick_params(axis='y', labelsize=9, colors=darkgray)
+
+    # Optional: Set y-axis spacing
+    ax.yaxis.set_major_locator(MultipleLocator(0.5))
+
+    # Optional: Set x-axis labels
+    if xtick_labels is not None:
+        ax.set_xticks(range(len(xtick_labels)))
+        ax.set_xticklabels(xtick_labels, rotation=45, ha="right")
+
+    # Grid and spines
+    ax.set_axisbelow(True)
+    ax.grid(True, axis='y', linestyle='-', alpha=0.15)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('lightgray')
+    ax.spines['bottom'].set_color('lightgray')
+    ax.spines['left'].set_linewidth(0.8)
+    ax.spines['bottom'].set_linewidth(0.8)
+
+    # Legend (if any)
+    legend = ax.get_legend()
+    if legend:
+        legend.facecolor = 'white',
+        legend.edgecolor = 'lightgray',
+        legend.alpha = 0.3,
+        legend.fontsize = 7
+
 def get_image_download_link(fig, filename="plot.png"):
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
@@ -131,7 +174,10 @@ def plot_aggression(df, ari_df):
             )]
         )
         fig_plotly.update_layout(
-            title=f"{group} Group (n={n}) – Avg Aggression: {aggr_pct:.1f}% (N={n_total})",
+            title=(
+            f"Aggression Breakdown – {group} Group<br>"
+            f"{n} participants (of {n_total}) reported aggression, Average Aggression Rate: {aggr_pct:.1f}%"
+        ),
             showlegend=False
         )
 
@@ -144,8 +190,11 @@ def plot_aggression(df, ari_df):
             startangle=90,
             colors=colors
         )
-        ax.set_title(f"{group} Group (n={n}) – Avg Aggression: {aggr_pct:.1f}% (N={n_total})")
-        plt.tight_layout()
+        ax.set_title(
+            f"Aggression Breakdown – {group} Group\n"
+            f"{n} participants (of {n_total}) reported aggression, Average Aggression Rate: {aggr_pct:.1f}%",
+            pad=10
+        )
 
         figs.append((group, fig_plotly, fig_mat))
 
@@ -221,11 +270,14 @@ def plot_means_by_irritability(df, ari_df, selected_questions):
         ax.bar(x + width / 2, grouped_mat.get("Non-Irritable", [0]*len(x)),
                width, label=f"Non-Irritable (N={n_per_group.get('Non-Irritable', 0)})", color=PALETTE[4])
 
-        ax.set_ylabel("Mean Score")
-        ax.set_xticks(x)
-        ax.set_xticklabels(grouped_mat.index, rotation=45, ha="right")
-        ax.set_title(f"{label} Question Means by Irritability")
-        ax.legend()
+        ax.legend(loc="upper right")
+        apply_modern_mpl_style(
+            ax,
+            xlabel="Question",
+            ylabel="Mean Score",
+            title=f"{label} Question Means by Irritability",
+            xtick_labels=grouped_mat.index
+        )
         plt.tight_layout()
 
         figs.append((label, fig_plotly, fig_export, fig_mat))
@@ -318,21 +370,52 @@ def plot_questions_over_time(df, ari_df, question_labels):
     x_vals = range(len(means.index))
     for grp, color in zip(["Irritable", "Non-Irritable"], ["#2e6c70", PALETTE[4]]):
         if grp in means:
-            ax.plot(x_vals, means[grp], label=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})", marker='o', color=color)
+            ax.plot(
+                x_vals, 
+                means[grp], 
+                label=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})", 
+                marker='o', 
+                color=color, 
+                linewidth=1.5,
+                markersize=4)
             ax.fill_between(
                 x_vals,
                 (means[grp] - sems[grp]).interpolate(limit_direction='both'),
                 (means[grp] + sems[grp]).interpolate(limit_direction='both'),
                 color=color,
-                alpha=0.2
+                alpha=0.15,
+                edgecolor=None
             )
 
-    ax.set_title(f"{' + '.join(question_labels)} Over Time by Irritability")
-    ax.set_xlabel("Timepoint")
-    ax.set_ylabel("Average Score")
+    # Axis labels & title
+    ax.set_title(f"{' + '.join(question_labels)} Over Time by Irritability", pad=10)
+    ax.set_xlabel("Timepoint", fontdict={'fontsize': 11, 'color': 'dimgray'})
+    ax.set_ylabel("Average Score", fontdict={'fontsize': 11, 'color': 'dimgray'})
+
+    # Tick styling
     ax.set_xticks(x_vals)
     ax.set_xticklabels(means.index, rotation=45, ha="right")
-    ax.legend()
+    ax.tick_params(axis='x', labelsize=9, colors='dimgray')
+    ax.tick_params(axis='y', labelsize=9, colors='dimgray')
+
+    # Y-axis spacing (e.g. every 0.5)
+    ax.yaxis.set_major_locator(MultipleLocator(0.5))
+
+    # Gridlines
+    ax.grid(True, axis='y', linestyle='-', alpha=0.15)
+
+    # Legend
+    leg = ax.legend(loc="upper right", frameon=True, fontsize='7' ,facecolor='white', edgecolor='lightgray')
+    leg.get_frame().set_alpha(0.3)
+
+    # Spine cleanup
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('lightgray')
+    ax.spines['bottom'].set_color('lightgray')
+    ax.spines['left'].set_linewidth(0.8)
+    ax.spines['bottom'].set_linewidth(0.8)
+
     plt.tight_layout()
 
     return fig_plotly, fig_export, fig_mat
@@ -401,23 +484,39 @@ def plot_correlation_matrix(df, ari_df, selected_questions):
     # === Matplotlib version with text ===
     fig_mat, ax = plt.subplots(figsize=(8, 6))
     im = ax.imshow(corr.values, cmap="RdBu_r", vmin=-1, vmax=1)
+    ax.set_aspect('equal')
 
     # Show all ticks and label them
     ax.set_xticks(np.arange(len(corr.columns)))
     ax.set_yticks(np.arange(len(corr.index)))
-    ax.set_xticklabels(corr.columns, rotation=45, ha="right", fontsize=8)
-    ax.set_yticklabels(corr.index, fontsize=8)
+    ax.set_xticklabels(corr.columns, rotation=270, ha="right", fontsize=9, color="#4B4B4B")
+    ax.set_yticklabels(corr.index, fontsize=9, color="#4B4B4B")
+    
 
     # Show values inside the heatmap
     for i in range(len(corr.index)):
         for j in range(len(corr.columns)):
             value = corr.iloc[i, j]
             ax.text(j, i, f"{value:.2f}", ha="center", va="center",
-                    color="white" if abs(value) > 0.5 else "black", fontsize=7)
+                    color="white" if abs(value) > 0.5 else "#333333", fontsize=7)
 
-    ax.set_title(f"Correlation Matrix (N={merged['participant_code'].nunique()})")
-    fig_mat.colorbar(im, ax=ax, shrink=0.8)
-    plt.tight_layout()
+    # Title and colorbar
+    ax.set_title(f"Correlation Matrix (N={merged['participant_code'].nunique()})", pad=10)
+    
+    # Colorbar
+    cbar = fig_mat.colorbar(im, ax=ax, shrink=0.8)
+    cbar.ax.tick_params(labelsize=8, colors='dimgray')
+    cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
+    cbar.outline.set_edgecolor('dimgray')
+    cbar.outline.set_linewidth(0.8)
+
+    # Clean up spines
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    # Layout
+    fig_mat.patch.set_facecolor("white")
+    plt.tight_layout(pad=1)
 
     return fig_plotly, fig_export, fig_mat
 
