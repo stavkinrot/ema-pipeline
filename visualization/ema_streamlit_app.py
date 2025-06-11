@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 import os
 import sys
+from included_questions import INCLUDED_QUESTIONS
+from io import BytesIO
+import plotly.io as pio
+import matplotlib.pyplot as plt
 
 # === Path Config ===
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -15,7 +19,6 @@ ARI_PATH = os.path.join(PROJECT_ROOT, "data", "ARI.xlsx")
 CHILD_LABELING_PATH = os.path.join(PROJECT_ROOT, "data", "children_labeling.xlsx")
 PARENT_LABELING_PATH = os.path.join(PROJECT_ROOT, "data", "parent_labeling.xlsx")
 
-
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "plots")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -25,7 +28,6 @@ PARENT_LABEL_MAP = build_label_to_hebrew_map(PARENT_LABELING_PATH)
 # Make project root importable (for visualize_all.py)
 sys.path.append(PROJECT_ROOT)
 
-# Import plotting functions
 from visualize_all import (
     plot_aggression,
     plot_means_by_irritability,
@@ -59,20 +61,75 @@ vis_type = st.sidebar.selectbox("Choose Visualization Type", [
     "Aggression Pie Charts",
     "Mean Scores by Group",
     "Question Over Time",
-    "Factor Correlation Matrix"
+    "Questions Correlation Matrix"
 ])
+
+# === Utility functions ===
+def download_buttons(fig_plotly=None, fig_mat=None, filename_prefix="plot"):
+    if fig_plotly:
+        buf = BytesIO()
+        pio.write_image(fig_plotly, buf, format="png", scale=3)
+        st.download_button(
+            label="Download as PNG (Plotly)",
+            data=buf.getvalue(),
+            file_name=f"{filename_prefix}_plotly.png",
+            mime="image/png"
+        )
+    if fig_mat:
+        buf = BytesIO()
+        fig_mat.savefig(buf, format="png", dpi=300, bbox_inches="tight")
+        st.download_button(
+            label="Download as PNG (Matplotlib)",
+            data=buf.getvalue(),
+            file_name=f"{filename_prefix}_matplotlib.png",
+            mime="image/png"
+        )
+        plt.close(fig_mat)
 
 # === Visualization logic ===
 if vis_type == "Aggression Pie Charts":
-    st.subheader("Aggression Type Distribution by Group")
-    plot_aggression(df, ari_df)
-    st.image(os.path.join(OUTPUT_DIR, "aggression_pie_by_group.png"))
+    for group, fig_plotly, fig_mat in plot_aggression(df, ari_df):
+        st.subheader(f"{group} Group")
+        st.plotly_chart(fig_plotly, use_container_width=True)
+        download_buttons(fig_plotly, fig_mat, filename_prefix=f"aggression_{group.lower()}")
 
 elif vis_type == "Mean Scores by Group":
-    st.subheader("Mean Scores for Child and Parent Questions")
-    plot_means_by_irritability(df, ari_df)
-    st.image(os.path.join(OUTPUT_DIR, "question_means_child_from_average.png"))
-    st.image(os.path.join(OUTPUT_DIR, "question_means_parent_from_average.png"))
+    st.subheader("Mean Scores by Irritability Group")
+
+    group = st.radio("Select group", ["Child", "Parent"])
+    prefix = "C_" if group == "Child" else "P_"
+
+    all_scale_questions = [f"{prefix}{q}" for q in SCALE_QUESTIONS if f"{prefix}{q}" in df.columns]
+    default_included = [q for q in INCLUDED_QUESTIONS if q.startswith(prefix) and q in all_scale_questions]
+
+    previous = st.session_state.get("mean_scores_selector", default_included)
+    stripped_previous = {q[2:] for q in previous}
+    converted_selection = [f"{prefix}{q}" for q in stripped_previous if f"{prefix}{q}" in all_scale_questions]
+    st.session_state["mean_scores_selector"] = converted_selection
+
+    col1, col2, col3 = st.columns([1, 1, 4])
+    with col1:
+        if st.button("Choose All", key="choose_all_means"):
+            st.session_state["mean_scores_selector"] = all_scale_questions
+    with col2:
+        if st.button("Default", key="choose_default_means"):
+            st.session_state["mean_scores_selector"] = default_included
+
+    selected = st.multiselect(
+        "Select questions to include:",
+        options=all_scale_questions,
+        default=st.session_state["mean_scores_selector"],
+        key="mean_scores_selector"
+    )
+
+    if selected:
+        figs = plot_means_by_irritability(df, ari_df, selected)
+        for label, fig_plotly, fig_export, fig_mat in figs:
+            if label == group:
+                st.plotly_chart(fig_plotly, use_container_width=True)
+                download_buttons(fig_export, fig_mat, filename_prefix=f"mean_scores_{group.lower()}")
+    else:
+        st.warning("Please select at least one question.")
 
 elif vis_type == "Question Over Time":
     st.subheader("Trends Over Time by Irritability Group")
@@ -84,23 +141,74 @@ elif vis_type == "Question Over Time":
 
     if group_columns:
         question = st.selectbox("Choose a question to visualize", group_columns)
-
         label_map = CHILD_LABEL_MAP if group == "Child" else PARENT_LABEL_MAP
-        hebrew_text = label_map.get(question, "שאלה בעברית לא זמינה")
-
-        if group == "Child":
-            hebrew_text = hebrew_text.replace("אמא", "ההורה").replace("אבא", "ההורה")
-
+        hebrew_text = label_map.get(question, "שאלה בעברית לא זמינה").replace("אמא", "ההורה").replace("אבא", "ההורה")
         st.markdown(f"**Hebrew question:** {hebrew_text}")
 
-        # Plot and show image
-        plot_questions_over_time(df, ari_df, question)
-        fname = f"question_trend_{question.lower()}.png"
-        st.image(os.path.join(OUTPUT_DIR, fname))
+        fig_plotly, fig_export, fig_mat = plot_questions_over_time(df, ari_df, question)
+        st.plotly_chart(fig_plotly, use_container_width=True)
+        download_buttons(fig_export, fig_mat, filename_prefix=f"question_over_time_{question}")
+
     else:
         st.warning("No valid questions found for this group.")
 
-elif vis_type == "Factor Correlation Matrix":
-    st.subheader("Parent-Child Factor Correlation Matrix")
-    plot_correlation_matrix(df, ari_df)
-    st.image(os.path.join(OUTPUT_DIR, "factor_correlation_matrix.png"))
+elif vis_type == "Questions Correlation Matrix":
+    st.subheader("Questions Correlation Matrix")
+
+    all_numeric_questions = [
+        col for col in df.columns
+        if (col.startswith("C_") or col.startswith("P_")) and pd.api.types.is_numeric_dtype(df[col])
+    ]
+    default_questions = [q for q in INCLUDED_QUESTIONS if q in all_numeric_questions]
+
+    if "correlation_matrix_selected" not in st.session_state:
+        st.session_state.correlation_matrix_selected = default_questions
+
+    st.markdown("### 📊 Filter by Correlation Strength")
+    row1, row2 = st.columns([3, 1])
+    with row1:
+        threshold = st.slider(
+            "Select minimum correlation between questions:",
+            min_value=0.1,
+            max_value=0.95,
+            value=0.6,
+            step=0.05,
+            key="corr_slider",
+            help="Includes questions that have at least one strong correlation (positive or negative)."
+        )
+    with row2:
+        if st.button("🔍 Apply Filter"):
+            corr_matrix = df[all_numeric_questions].corr().abs()
+            corr_mask = (corr_matrix > threshold) & (corr_matrix < 1.0)
+            filtered_questions = sorted(set(
+                col for col in corr_mask.columns if corr_mask[col].any()
+            ))
+            st.session_state.correlation_matrix_selected = filtered_questions
+            if filtered_questions:
+                st.success(f"Selected {len(filtered_questions)} questions with |correlation| ≥ {threshold}")
+            else:
+                st.warning("No questions met the correlation threshold.")
+
+    btn_col1, btn_col2 = st.columns([1, 1])
+    with btn_col1:
+        if st.button("✅ Choose All"):
+            st.session_state.correlation_matrix_selected = all_numeric_questions
+    with btn_col2:
+        if st.button("↩️ Default"):
+            st.session_state.correlation_matrix_selected = default_questions
+
+    valid_defaults = [q for q in st.session_state.correlation_matrix_selected if q in all_numeric_questions]
+
+    selected_corr_questions = st.multiselect(
+        "Select questions to include in Correlation Matrix",
+        options=all_numeric_questions,
+        default=valid_defaults,
+        key="correlation_matrix_selector"
+    )
+
+    if selected_corr_questions:
+        fig_plotly, fig_export, fig_mat = plot_correlation_matrix(df, ari_df, selected_corr_questions)
+        st.plotly_chart(fig_plotly, use_container_width=True)
+        download_buttons(fig_export, fig_mat, filename_prefix="correlation_matrix")
+    else:
+        st.warning("Please select at least one question.")
