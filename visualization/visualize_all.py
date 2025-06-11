@@ -246,12 +246,13 @@ def plot_questions_over_time(df, ari_df, question_labels):
     )
 
     merged = df.merge(ari_df[["participant_code", "group"]], on="participant_code", how="inner")
-    merged["factor_score"] = merged[question_labels].select_dtypes(include='number').mean(axis=1, skipna=True)
+    merged["factor_score"] = merged[question_labels].apply(pd.to_numeric, errors="coerce").mean(axis=1, skipna=True)
 
     # Construct ordered timepoints
+    full_timepoints = [f"{d} {t}" for d in range(1, 8) for t in ["AM", "PM"]]
     merged["timepoint"] = pd.Categorical(
         merged["day_child"].astype(str) + " " + merged["time_of_day_child"],
-        categories=[f"{d} {t}" for d in range(1, 8) for t in ["AM", "PM"]],
+        categories=full_timepoints,
         ordered=True
     )
 
@@ -259,6 +260,15 @@ def plot_questions_over_time(df, ari_df, question_labels):
     grouped = merged.groupby(["timepoint", "group"])["factor_score"]
     means = grouped.mean().unstack()
     sems = grouped.sem().unstack()
+
+    # Ensure full index even if some timepoints are missing
+    means = means.reindex(full_timepoints)
+    sems = sems.reindex(full_timepoints)
+
+    # 🔧 Filter out timepoints where both groups have no data
+    valid_timepoints = means.dropna(how="all").index
+    means = means.loc[valid_timepoints]
+    sems = sems.loc[valid_timepoints]
 
     # === Plotly plot ===
     fig_plotly = go.Figure()
@@ -269,11 +279,17 @@ def plot_questions_over_time(df, ari_df, question_labels):
                 y=means[grp],
                 mode="lines+markers",
                 name=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})",
-                line=dict(color=color)
+                line=dict(color=color),
+                connectgaps=True
             ))
+
+            # Interpolate SEM values for shading
+            upper = (means[grp] + sems[grp]).interpolate(limit_direction='both')
+            lower = (means[grp] - sems[grp]).interpolate(limit_direction='both')
+
             fig_plotly.add_trace(go.Scatter(
                 x=means.index.tolist() + means.index[::-1].tolist(),
-                y=(means[grp] + sems[grp]).tolist() + (means[grp] - sems[grp])[::-1].tolist(),
+                y=upper.tolist() + lower[::-1].tolist(),
                 fill='toself',
                 fillcolor=hex_to_rgba(color, 0.2),
                 line=dict(color='rgba(255,255,255,0)'),
@@ -297,29 +313,30 @@ def plot_questions_over_time(df, ari_df, question_labels):
         height=600
     )
 
-
     # === Matplotlib plot ===
-    fig_mat, ax = plt.subplots(figsize=(6, 4)) # control the size of the plot
+    fig_mat, ax = plt.subplots(figsize=(6, 4))
+    x_vals = range(len(means.index))
     for grp, color in zip(["Irritable", "Non-Irritable"], ["#2e6c70", PALETTE[4]]):
         if grp in means:
-            x = range(len(means.index))
-            ax.plot(x, means[grp], label=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})", marker='o', color=color)
+            ax.plot(x_vals, means[grp], label=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})", marker='o', color=color)
             ax.fill_between(
-                x,
-                means[grp] - sems[grp],
-                means[grp] + sems[grp],
+                x_vals,
+                (means[grp] - sems[grp]).interpolate(limit_direction='both'),
+                (means[grp] + sems[grp]).interpolate(limit_direction='both'),
                 color=color,
                 alpha=0.2
             )
+
     ax.set_title(f"{' + '.join(question_labels)} Over Time by Irritability")
     ax.set_xlabel("Timepoint")
     ax.set_ylabel("Average Score")
-    ax.set_xticks(range(len(means.index)))
+    ax.set_xticks(x_vals)
     ax.set_xticklabels(means.index, rotation=45, ha="right")
     ax.legend()
     plt.tight_layout()
 
     return fig_plotly, fig_export, fig_mat
+
 
 
 
