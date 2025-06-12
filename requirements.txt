@@ -8,3 +8,5 @@ plotly
 streamlit
 tqdm
 scipy
+
+# pip install -r requirements.txt
