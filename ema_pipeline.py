@@ -5,6 +5,8 @@ from processing.extract import extract_zips
 from processing.labeling import load_labeling_map
 from processing.survey_parser import parse_survey_folder, save_other_text_mapping, merge_surveys
 from processing.outlier_detector import OutlierDetector
+from processing.dyadic_sync import run_dyadic_sync
+from processing.averager import run_averager
 
 
 
@@ -68,6 +70,11 @@ def main():
         merged_df.to_csv(output_merged_csv, index=False, encoding="utf-8-sig")
         print(f"[INFO] Saved merged wide-format survey to {output_merged_csv}")
 
+    print("[INFO] Running post-processing: dyadic_sync")
+    run_dyadic_sync()
+
+    print("[INFO] Running post-processing: averager")
+    run_averager()
 
     # Save free-text "Other" answers
     save_other_text_mapping(output_other_texts_csv)

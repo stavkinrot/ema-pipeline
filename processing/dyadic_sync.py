@@ -66,6 +66,11 @@ def compute_dyadic_sync(merged_df: pd.DataFrame, ari_df: pd.DataFrame, output_pa
     print(f"Saved dyadic sync to {output_path}")
     return sync_df
 
+def run_dyadic_sync():
+    merged = pd.read_csv("output/merged_surveys.csv")
+    ari = pd.read_excel("data/ARI.xlsx")
+    compute_dyadic_sync(merged, ari, output_path="output/sync_df.csv")
+
 # Example usage
 if __name__ == "__main__":
     merged = pd.read_csv("output/merged_surveys.csv")

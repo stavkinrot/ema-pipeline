@@ -51,6 +51,12 @@ def average_responses(input_path, output_path):
     avg_df.to_csv(output_path, index=False)
     print(f"Saved averages to {output_path}")
 
+def run_averager():
+    average_responses(
+        input_path="output/merged_surveys.csv",
+        output_path="output/child_parent_averages.csv"
+    )
+
 # Example usage
 if __name__ == "__main__":
     average_responses(
