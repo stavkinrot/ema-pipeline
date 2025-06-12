@@ -1,5 +1,6 @@
 from io import BytesIO
 import sys
+import seaborn as sns
 from matplotlib.ticker import MultipleLocator
 import plotly.express as px
 import plotly.graph_objects as go
@@ -520,6 +521,142 @@ def plot_correlation_matrix(df, ari_df, selected_questions):
 
     return fig_plotly, fig_export, fig_mat
 
+def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=None):
+    """
+    Returns 3 figures:
+    - Plotly figure for display
+    - Plotly figure for PNG export
+    - Matplotlib figure for PNG export
+    """
+    if questions is not None:
+        sync_df = sync_df[sync_df["question"].isin(questions)]
+
+    # Drop missing values for selected metric
+    df = sync_df.dropna(subset=[metric])
+
+    title_map = {
+        "pearson": "Pearson Correlation",
+        "spearman": "Spearman Correlation",
+        "mad": "Mean Absolute Difference (MAD)"
+    }
+
+    y_title = title_map.get(metric, metric)
+
+    # Count Ns per question/group
+    counts = df.groupby(["question", "group"]).size().unstack(fill_value=0)
+    question_labels = {
+        q: f"{q} (N={counts.loc[q].get('Non-Irritable', 0)},{counts.loc[q].get('Irritable', 0)})"
+        for q in counts.index
+    }
+
+    # === Plotly Figure ===
+    color_map = {
+        "Irritable": "#2e6c70",
+        "Non-Irritable": PALETTE[4]
+    }
+
+    df["question_label"] = df["question"].map(question_labels)
+
+    if plot_type == "box":
+        fig_plotly = px.box(
+            df,
+            x="group",
+            y=metric,
+            color="group",
+            facet_col="question_label",
+            facet_col_wrap=4,
+            title=f"Parent-Child Synchronization by Group ({y_title})",
+            points="all",
+            height=600,
+            color_discrete_map=color_map
+        )
+    else:
+        fig_plotly = px.violin(
+            df,
+            x="group",
+            y=metric,
+            color="group",
+            facet_col="question_label",
+            facet_col_wrap=4,
+            title=f"Parent-Child Synchronization by Group ({y_title})",
+            points="all",
+            box=True,
+            height=600,
+            color_discrete_map=color_map
+        )
+
+    fig_plotly.update_layout(
+        yaxis_title=y_title,
+        font=dict(size=11, color="#4B4B4B"),
+        title_font_size=16,
+        margin=dict(t=80, b=60),
+        showlegend=False,
+    )
+
+    # 🔧 Remove all x-axis titles (facets) and rotate tick labels to 0
+    fig_plotly.for_each_xaxis(lambda axis: axis.update(title=None, tickangle=0))
+    fig_plotly.for_each_annotation(lambda a: a.update(
+        text=a.text.replace("question_label=", "").strip()
+    ))
+
+    # Export version
+    fig_export = go.Figure(fig_plotly.to_dict())
+    fig_export.update_layout(
+        width=700,
+        height=550,
+        margin=dict(l=120, r=100, t=100, b=120),
+    )
+
+    fig_export.update_yaxes(zeroline=False)
+
+     # === Matplotlib Version ===
+    import seaborn as sns
+    num_questions = df["question"].nunique()
+    n_cols = 4
+    n_rows = -(-num_questions // n_cols)
+
+    fig_mat, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 4 * n_rows), squeeze=False)
+    grouped = df.groupby("question")
+
+    for i, (question, group_data) in enumerate(grouped):
+        row, col = divmod(i, n_cols)
+        ax = axes[row][col]
+        palette = {
+            "Irritable": "#2e6c70",
+            "Non-Irritable": PALETTE[4]
+        }
+
+        if plot_type == "box":
+            sns.boxplot(x="group", y=metric, data=group_data, ax=ax, palette=palette)
+        else:
+            sns.violinplot(x="group", y=metric, data=group_data, ax=ax, inner="quartile", palette=palette)
+
+        ax.set_xlabel("")
+
+        if col == 0:
+            # Only leftmost plots in each row show y-axis
+            apply_modern_mpl_style(ax, title=question, ylabel=y_title)
+        else:
+            ax.set_ylabel("")
+            ax.set_yticklabels([])
+            ax.tick_params(axis='y', left=False)
+            apply_modern_mpl_style(ax, title=question)
+
+    # Turn off unused subplots
+    for j in range(i + 1, n_rows * n_cols):
+        row, col = divmod(j, n_cols)
+        axes[row][col].axis("off")
+
+    from matplotlib.patches import Patch
+    handles = [
+        Patch(color="#2e6c70", label="Irritable"),
+        Patch(color=PALETTE[4], label="Non-Irritable")
+    ]
+
+    fig_mat.tight_layout()
+    return fig_plotly, fig_export, fig_mat
+
+
 
 
 def main():
@@ -531,6 +668,13 @@ def main():
     plot_means_by_irritability(df.copy(), ari_df)
     plot_questions_over_time(df.copy(), ari_df, "C_Irr_Frustration")
     plot_correlation_matrix(df.copy(), ari_df)
+
+    # New: Synchronization comparison
+    sync_path = os.path.join(PROJECT_ROOT, "output", "sync_df.csv")
+    sync_df = pd.read_csv(sync_path)
+
+    fig = plot_sync_comparison(sync_df, metric="pearson", plot_type="box")
+    fig.savefig(os.path.join(OUTPUT_DIR, "sync_comparison_pearson_box.png"), dpi=300, bbox_inches="tight")
 
 if __name__ == "__main__":
     main()

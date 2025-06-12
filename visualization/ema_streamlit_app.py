@@ -18,6 +18,7 @@ DATA_PATH = os.path.join(PROJECT_ROOT, "output", "merged_surveys.csv")
 ARI_PATH = os.path.join(PROJECT_ROOT, "data", "ARI.xlsx")
 CHILD_LABELING_PATH = os.path.join(PROJECT_ROOT, "data", "children_labeling.xlsx")
 PARENT_LABELING_PATH = os.path.join(PROJECT_ROOT, "data", "parent_labeling.xlsx")
+SYNC_DF_PATH = os.path.join(PROJECT_ROOT, "output", "sync_df.csv")
 
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "plots")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -32,7 +33,8 @@ from visualize_all import (
     plot_aggression,
     plot_means_by_irritability,
     plot_questions_over_time,
-    plot_correlation_matrix
+    plot_correlation_matrix,
+    plot_sync_comparison
 )
 
 # === Valid scale questions for both child and parent ===
@@ -61,7 +63,8 @@ vis_type = st.sidebar.selectbox("Choose Visualization Type", [
     "Aggression Pie Charts",
     "Mean Scores by Group",
     "Question Over Time",
-    "Questions Correlation Matrix"
+    "Questions Correlation Matrix",
+    "Dyadic Synchronization Comparison"
 ])
 
 # === Utility functions ===
@@ -212,3 +215,58 @@ elif vis_type == "Questions Correlation Matrix":
         download_buttons(fig_export, fig_mat, filename_prefix="correlation_matrix")
     else:
         st.warning("Please select at least one question.")
+
+elif vis_type == "Dyadic Synchronization Comparison":
+    st.subheader("Dyadic Synchronization: Parent-Child Agreement")
+
+    # === Load sync_df ===
+    @st.cache_data
+    def load_sync_df():
+        return pd.read_csv(SYNC_DF_PATH, encoding="utf-8-sig")
+    sync_df = load_sync_df()
+
+    # === Controls ===
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        correlation_type = st.selectbox("Select correlation type", ["pearson", "spearman", "mad"], key="sync_corr_type")
+    with col2:
+        plot_type = st.selectbox("Select plot type", ["box", "violin"], key="sync_plot_type")
+    with col3:
+        group_mode = st.radio("Grouping", ["Separate groups", "Combine groups"], key="sync_group_mode")
+
+    all_sync_questions = SCALE_QUESTIONS + ["Agr_none"]
+    default_questions = ["Inv_Fun", "PS_Agree", "PS_Patient", "Agr_none"]
+
+    if "sync_questions_selected" not in st.session_state:
+        st.session_state.sync_questions_selected = default_questions
+
+    btn1, btn2 = st.columns([1, 1])
+    with btn1:
+        if st.button("✅ Choose All", key="choose_all_sync"):
+            st.session_state.sync_questions_selected = all_sync_questions
+    with btn2:
+        if st.button("↩️ Default", key="default_sync"):
+            st.session_state.sync_questions_selected = default_questions
+
+    selected_sync_questions = st.multiselect(
+        "Select questions to include:",
+        options=all_sync_questions,
+        default=st.session_state.sync_questions_selected,
+        key="sync_questions_selector"
+    )
+
+    if selected_sync_questions:
+        df_to_plot = sync_df.copy()
+        if group_mode == "Combine groups":
+            df_to_plot["group"] = "All"
+
+        fig_plotly, fig_export, fig_mat = plot_sync_comparison(
+            df_to_plot,
+            metric=correlation_type,
+            plot_type=plot_type,
+            questions=selected_sync_questions
+        )
+        st.plotly_chart(fig_plotly, use_container_width=True)
+        download_buttons(fig_export, fig_mat, filename_prefix=f"sync_comparison_{correlation_type}_{plot_type}")
+    else:
+        st.warning("Please select at least one question to display.")
