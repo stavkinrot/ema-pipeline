@@ -259,9 +259,6 @@ def plot_means_by_irritability(df, ari_df, selected_questions, color_map):
         df_role["participant_code"] = merged["participant_code"]
         n_per_group = df_role.groupby("group")["participant_code"].nunique().to_dict()
 
-        print("Correct group counts:", n_per_group)
-        print("Sum of participants:", sum(n_per_group.values()))  # Should equal 81
-
         # Plotly interactive chart
         grouped["group_with_n"] = grouped["group"].apply(
             lambda g: f"{g} (N={n_per_group.get(g, 0)})"
