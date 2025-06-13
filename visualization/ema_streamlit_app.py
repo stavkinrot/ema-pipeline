@@ -6,6 +6,8 @@ from included_questions import INCLUDED_QUESTIONS
 from io import BytesIO
 import plotly.io as pio
 import matplotlib.pyplot as plt
+from visualization.colors_config import PALETTE
+from visualize_all import assign_ari_groups
 
 # === Path Config ===
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -57,6 +59,7 @@ def load_data():
 
 df, ari_df = load_data()
 
+
 # === Sidebar controls ===
 st.sidebar.title("EMA Visualization")
 vis_type = st.sidebar.selectbox("Choose Visualization Type", [
@@ -99,6 +102,49 @@ if vis_type == "Aggression Pie Charts":
 elif vis_type == "Mean Scores by Group":
     st.subheader("Mean Scores by Irritability Group")
 
+    with st.sidebar.expander("⚙️ Settings", expanded=True):
+        st.markdown("### 🔧 ARI Thresholds")
+        th_range = st.slider(
+            "Set thresholds",
+            min_value=1, max_value=7, value=(3, 5), step=1,
+            help="If thresholds overlap, two groups will be used. Otherwise, three groups"
+        )
+
+        st.markdown("### 🎨 Plot Group Colors")
+        color_low = st.color_picker("Low", PALETTE[3])
+        color_med = st.color_picker("Medium", PALETTE[4])
+        color_high = st.color_picker("High", PALETTE[1])
+
+        apply_changes = st.button("✅ Apply")
+
+    if "mean_scores_config" not in st.session_state:
+        st.session_state.mean_scores_config = {
+            "low_th": th_range[0],
+            "high_th": th_range[1],
+            "colors": {
+                "Low": color_low,
+                "Medium": color_med,
+                "High": color_high
+            }
+        }
+
+    if apply_changes:
+        st.session_state.mean_scores_config = {
+            "low_th": th_range[0],
+            "high_th": th_range[1],
+            "colors": {
+                "Low": color_low,
+                "Medium": color_med,
+                "High": color_high
+            }
+        }
+
+    config = st.session_state.mean_scores_config
+    low_th, high_th = config["low_th"], config["high_th"]
+    color_map = config["colors"]
+    ari_df_grouped = assign_ari_groups(ari_df, low_th, high_th)
+
+    # === Group & Question Selection ===
     group = st.radio("Select group", ["Children", "Parents"])
     prefix = "C_" if group == "Children" else "P_"
 
@@ -126,7 +172,7 @@ elif vis_type == "Mean Scores by Group":
     )
 
     if selected:
-        figs = plot_means_by_irritability(df, ari_df, selected)
+        figs = plot_means_by_irritability(df, ari_df_grouped, selected, color_map)
         for label, fig_plotly, fig_export, fig_mat in figs:
             if label == group:
                 st.plotly_chart(fig_plotly, use_container_width=True)
@@ -148,12 +194,83 @@ elif vis_type == "Question Over Time":
         hebrew_text = label_map.get(question, "שאלה בעברית לא זמינה").replace("אמא", "ההורה").replace("אבא", "ההורה")
         st.markdown(f"**Hebrew question:** {hebrew_text}")
 
-        fig_plotly, fig_export, fig_mat = plot_questions_over_time(df, ari_df, question)
+        # === Sidebar: ARI thresholds and colors ===
+        with st.sidebar.expander("⚙️ Settings", expanded=True):
+            st.markdown("### 🔧 ARI Thresholds")
+            th_range = st.slider(
+                "Set thresholds",
+                min_value=1, max_value=7, value=(3, 5), step=1,
+                help="If thresholds overlap, two groups will be used. Otherwise, three groups"
+            )
+
+            st.markdown("### 🎨 Plot Group Colors")
+            default_colors = {
+                "Low": PALETTE[3],
+                "Medium": PALETTE[4],
+                "High": PALETTE[1]
+            }
+
+            # Reset colors if requested
+            if "qot_color_low" not in st.session_state:
+                st.session_state.qot_color_low = default_colors["Low"]
+            if "qot_color_med" not in st.session_state:
+                st.session_state.qot_color_med = default_colors["Medium"]
+            if "qot_color_high" not in st.session_state:
+                st.session_state.qot_color_high = default_colors["High"]
+
+            col_apply, col_reset = st.columns([1, 1])
+            with col_reset:
+                if st.button("↩️ Default Colors", key="reset_qot_colors"):
+                    st.session_state.qot_color_low = default_colors["Low"]
+                    st.session_state.qot_color_med = default_colors["Medium"]
+                    st.session_state.qot_color_high = default_colors["High"]
+
+            # Draw color pickers using session state
+            color_low = st.color_picker("Low", key="qot_color_low")
+            color_med = st.color_picker("Medium", key="qot_color_med")
+            color_high = st.color_picker("High", key="qot_color_high")
+
+            with col_apply:
+                if st.button("✅ Apply", key="apply_qot_config"):
+                    st.session_state.qot_config = {
+                        "low_th": th_range[0],
+                        "high_th": th_range[1],
+                        "colors": {
+                            "Low": st.session_state.qot_color_low,
+                            "Medium": st.session_state.qot_color_med,
+                            "High": st.session_state.qot_color_high,
+                        }
+                    }
+
+            if "qot_config" not in st.session_state:
+                st.session_state.qot_config = {
+                    "low_th": th_range[0],
+                    "high_th": th_range[1],
+                    "colors": {
+                        "Low": color_low,
+                        "Medium": color_med,
+                        "High": color_high
+                    }
+                }
+
+        # Extract config
+        config = st.session_state.qot_config
+        low_th, high_th = config["low_th"], config["high_th"]
+        color_map = config["colors"]
+
+        # Assign ARI groups dynamically
+        ari_df_grouped = assign_ari_groups(ari_df.copy(), low_th, high_th)
+
+        # Plot
+        fig_plotly, fig_export, fig_mat = plot_questions_over_time(
+            df, ari_df_grouped, question, color_map=color_map
+        )
         st.plotly_chart(fig_plotly, use_container_width=True)
         download_buttons(fig_export, fig_mat, filename_prefix=f"question_over_time_{question}")
-
     else:
         st.warning("No valid questions found for this group.")
+
+
 
 elif vis_type == "Questions Correlation Matrix":
     st.subheader("Questions Correlation Matrix")
@@ -219,13 +336,78 @@ elif vis_type == "Questions Correlation Matrix":
 elif vis_type == "Dyadic Synchronization Comparison":
     st.subheader("Dyadic Synchronization: Parent-Child Agreement")
 
-    # === Load sync_df ===
     @st.cache_data
     def load_sync_df():
         return pd.read_csv(SYNC_DF_PATH, encoding="utf-8-sig")
+
     sync_df = load_sync_df()
 
-    # === Controls ===
+    # === Sidebar: ARI thresholds and colors ===
+    with st.sidebar.expander("⚙️ Settings", expanded=True):
+        st.markdown("### 🔧 ARI Thresholds")
+        th_range = st.slider(
+            "Set thresholds",
+            min_value=1, max_value=7, value=(3, 5), step=1,
+            help="If thresholds overlap, two groups will be used. Otherwise, three groups"
+        )
+
+        st.markdown("### 🎨 Plot Group Colors")
+        color_low = st.color_picker("Low", PALETTE[3])
+        color_med = st.color_picker("Medium", PALETTE[4])
+        color_high = st.color_picker("High", PALETTE[1])
+
+        apply_changes = st.button("✅ Apply", key="sync_apply")
+
+    if "sync_config" not in st.session_state:
+        st.session_state.sync_config = {
+            "low_th": th_range[0],
+            "high_th": th_range[1],
+            "colors": {
+                "Low": color_low,
+                "Medium": color_med,
+                "High": color_high
+            }
+        }
+
+    if apply_changes:
+        st.session_state.sync_config = {
+            "low_th": th_range[0],
+            "high_th": th_range[1],
+            "colors": {
+                "Low": color_low,
+                "Medium": color_med,
+                "High": color_high
+            }
+        }
+
+    config = st.session_state.sync_config
+    low_th, high_th = config["low_th"], config["high_th"]
+    color_map = config["colors"]
+
+    # Assign ARI groups
+    ari_df_grouped = assign_ari_groups(ari_df.copy(), low_th, high_th)
+    
+    # Merge with sync_df
+    if "participant_code_parent" in sync_df.columns:
+        sync_df = sync_df.drop(columns=["group"], errors="ignore")  # Drop if exists
+
+        sync_df["participant_code_parent"] = sync_df["participant_code_parent"].astype(str).str.strip()
+        ari_df_grouped["participant_code"] = ari_df_grouped["participant_code"].astype(str).str.strip()
+
+        merged_df = sync_df.merge(
+            ari_df_grouped[["participant_code", "group"]],
+            left_on="participant_code_parent",
+            right_on="participant_code",
+            how="left"
+        )
+        merged_df.drop(columns=["participant_code"], inplace=True)
+
+    else:
+        st.warning("⚠️ participant_code_parent not found in sync_df. Defaulting group to 'All'.")
+        sync_df["group"] = "All"
+        merged_df = sync_df
+
+    # === Plot controls ===
     col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
         correlation_type = st.selectbox("Select correlation type", ["pearson", "spearman", "mad"], key="sync_corr_type")
@@ -256,7 +438,7 @@ elif vis_type == "Dyadic Synchronization Comparison":
     )
 
     if selected_sync_questions:
-        df_to_plot = sync_df.copy()
+        df_to_plot = merged_df.copy()
         if group_mode == "Combine groups":
             df_to_plot["group"] = "All"
 
@@ -264,9 +446,11 @@ elif vis_type == "Dyadic Synchronization Comparison":
             df_to_plot,
             metric=correlation_type,
             plot_type=plot_type,
-            questions=selected_sync_questions
+            questions=selected_sync_questions,
+            color_map=color_map
         )
         st.plotly_chart(fig_plotly, use_container_width=True)
         download_buttons(fig_export, fig_mat, filename_prefix=f"sync_comparison_{correlation_type}_{plot_type}")
     else:
         st.warning("Please select at least one question to display.")
+

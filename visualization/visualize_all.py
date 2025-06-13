@@ -93,13 +93,24 @@ def hex_to_rgba(hex_color, alpha=0.2):
     r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     return f'rgba({r}, {g}, {b}, {alpha})'
 
-# === Preprocessing Helper ===
-def preprocess_ari_df(ari_df):
-    df = ari_df.rename(columns={"participant number": "participant_code", "score": "score"}).copy()
+
+def assign_ari_groups(ari_df, low_th, high_th):
+    def assign(score):
+        if pd.isna(score):
+            return None
+        if np.isclose(low_th, high_th):
+            return "Low" if score < low_th else "High"
+        if score < low_th:
+            return "Low"
+        elif score < high_th:
+            return "Medium"
+        else:
+            return "High"
+    df = ari_df.copy()
+    df = df.rename(columns={"participant number": "participant_code", "score": "score"})
     df["participant_code"] = df["participant_code"].astype(str).str.strip()
-    df["group"] = pd.to_numeric(df["score"], errors="coerce").apply(
-        lambda x: "Irritable" if pd.notna(x) and x >= 3 else "Non-Irritable"
-    )
+    df["score"] = pd.to_numeric(df["score"], errors="coerce")
+    df["group"] = df["score"].apply(assign)
     return df
 
 # === Plotting Functions ===
@@ -202,15 +213,8 @@ def plot_aggression(df, ari_df):
     return figs
 
 
-def plot_means_by_irritability(df, ari_df, selected_questions):
+def plot_means_by_irritability(df, ari_df, selected_questions, color_map):
     avg_df = pd.read_csv("output/child_parent_averages.csv")
-
-    ari_df = ari_df.rename(columns={"participant number": "participant_code", "score": "score"})
-    ari_df["participant_code"] = ari_df["participant_code"].astype(str).str.strip()
-    ari_df["group"] = pd.to_numeric(ari_df["score"], errors="coerce").apply(
-        lambda x: "Irritable" if pd.notna(x) and x >= 3 else "Non-Irritable"
-    )
-
     avg_df["participant_code"] = avg_df["participant_code_parent"].astype(str).str.strip()
     merged = avg_df.merge(ari_df[["participant_code", "group"]], on="participant_code", how="inner")
 
@@ -233,6 +237,9 @@ def plot_means_by_irritability(df, ari_df, selected_questions):
         grouped["group_with_n"] = grouped["group"].apply(
             lambda g: f"{g} (N={n_per_group.get(g, 0)})"
         )
+
+        grouped["group"] = pd.Categorical(grouped["group"], categories=["Low", "Medium", "High"], ordered=True)
+        grouped = grouped.sort_values(["Question", "group"])
         fig_plotly = px.bar(
             grouped,
             x="Question",
@@ -240,9 +247,9 @@ def plot_means_by_irritability(df, ari_df, selected_questions):
             color="group_with_n",
             barmode="group",
             title=f"{label} Question Means by Irritability",
-            color_discrete_map={
-                f"Irritable (N={n_per_group.get('Irritable', 0)})": PALETTE[0],
-                f"Non-Irritable (N={n_per_group.get('Non-Irritable', 0)})": PALETTE[4]
+            color_discrete_map = {
+                gw: color_map.get(gw.split(" ")[0], "#cccccc")  # extract 'Low', 'Medium', etc.
+                for gw in grouped["group_with_n"].unique()
             }
         )
         fig_plotly.update_layout(
@@ -263,40 +270,56 @@ def plot_means_by_irritability(df, ari_df, selected_questions):
         # Matplotlib version
         grouped_mat = melted.groupby(["Question", "group"])["Mean Score"].mean().unstack()
         x = np.arange(len(grouped_mat.index))
-        width = 0.35
+        width = 0.22  # Narrower bars to fit nicely
 
-        fig_mat, ax = plt.subplots(figsize=(max(10, len(grouped_mat) * 0.6), 5))
-        ax.bar(x - width / 2, grouped_mat.get("Irritable", [0]*len(x)),
-               width, label=f"Irritable (N={n_per_group.get('Irritable', 0)})", color=PALETTE[0])
-        ax.bar(x + width / 2, grouped_mat.get("Non-Irritable", [0]*len(x)),
-               width, label=f"Non-Irritable (N={n_per_group.get('Non-Irritable', 0)})", color=PALETTE[4])
+        fig_mat, ax = plt.subplots(figsize=(max(10, len(grouped_mat.index) * 0.6), 5))
 
-        ax.legend(loc="best")
+        # Ensure consistent group order
+        grouped_mat = grouped_mat.reindex(columns=[g for g in ["Low", "Medium", "High"] if g in grouped_mat.columns])
+        n_groups = len(grouped_mat.columns)
+
+        # Compute fixed offsets per group (centered)
+        bar_offsets = [-width * n_groups / 2 + width * (i + 0.5) for i in range(n_groups)]
+
+        # Plot bars for each group
+        for i, g in enumerate(grouped_mat.columns):
+            ax.bar(
+                x + bar_offsets[i],
+                grouped_mat[g].values,
+                width=width,
+                label=f"{g} (N={n_per_group.get(g, 0)})",
+                color=color_map.get(g, "#cccccc"),
+                align="center"
+            )
+
+        # X-ticks centered under question clusters
+        ax.set_xticks(x)
+        ax.set_xticklabels(grouped_mat.index, rotation=45, ha="right")
+
+        ax.legend(loc="upper right")
         apply_modern_mpl_style(
             ax,
             xlabel="Question",
             ylabel="Mean Score",
-            title=f"{label} Question Means by Irritability",
-            xtick_labels=grouped_mat.index
+            title=f"{label} Question Means by Irritability"
         )
         plt.tight_layout()
-
         figs.append((label, fig_plotly, fig_export, fig_mat))
 
     return figs
 
 
-def plot_questions_over_time(df, ari_df, question_labels):
+def plot_questions_over_time(df, ari_df, question_labels, color_map):
+    import streamlit as st  # ensure available if needed for debug output
+
     if isinstance(question_labels, str):
         question_labels = [question_labels]
 
     # Prepare data
+    df = df.copy()
     df["participant_code"] = df["participant_code_parent"].astype(str).str.strip()
-    ari_df = ari_df.rename(columns={"participant number": "participant_code", "score": "score"})
+    ari_df = ari_df.copy()
     ari_df["participant_code"] = ari_df["participant_code"].astype(str).str.strip()
-    ari_df["group"] = pd.to_numeric(ari_df["score"], errors="coerce").apply(
-        lambda x: "Irritable" if pd.notna(x) and x >= 3 else "Non-Irritable"
-    )
 
     merged = df.merge(ari_df[["participant_code", "group"]], on="participant_code", how="inner")
     merged["factor_score"] = merged[question_labels].apply(pd.to_numeric, errors="coerce").mean(axis=1, skipna=True)
@@ -318,37 +341,36 @@ def plot_questions_over_time(df, ari_df, question_labels):
     means = means.reindex(full_timepoints)
     sems = sems.reindex(full_timepoints)
 
-    # 🔧 Filter out timepoints where both groups have no data
+    # 🔧 Filter out timepoints where all groups have no data
     valid_timepoints = means.dropna(how="all").index
     means = means.loc[valid_timepoints]
     sems = sems.loc[valid_timepoints]
 
+    ordered_groups = [g for g in ["Low", "Medium", "High"] if g in means.columns]
+
     # === Plotly plot ===
     fig_plotly = go.Figure()
-    for grp, color in zip(["Irritable", "Non-Irritable"], ["#2e6c70", PALETTE[4]]):
-        if grp in means:
-            fig_plotly.add_trace(go.Scatter(
-                x=means.index,
-                y=means[grp],
-                mode="lines+markers",
-                name=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})",
-                line=dict(color=color),
-                connectgaps=True
-            ))
-
-            # Interpolate SEM values for shading
-            upper = (means[grp] + sems[grp]).interpolate(limit_direction='both')
-            lower = (means[grp] - sems[grp]).interpolate(limit_direction='both')
-
-            fig_plotly.add_trace(go.Scatter(
-                x=means.index.tolist() + means.index[::-1].tolist(),
-                y=upper.tolist() + lower[::-1].tolist(),
-                fill='toself',
-                fillcolor=hex_to_rgba(color, 0.2),
-                line=dict(color='rgba(255,255,255,0)'),
-                hoverinfo="skip",
-                showlegend=False
-            ))
+    for grp in ordered_groups:
+        color = color_map.get(grp, "#cccccc")
+        fig_plotly.add_trace(go.Scatter(
+            x=means.index,
+            y=means[grp],
+            mode="lines+markers",
+            name=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})",
+            line=dict(color=color),
+            connectgaps=True
+        ))
+        upper = (means[grp] + sems[grp]).interpolate(limit_direction='both')
+        lower = (means[grp] - sems[grp]).interpolate(limit_direction='both')
+        fig_plotly.add_trace(go.Scatter(
+            x=means.index.tolist() + means.index[::-1].tolist(),
+            y=upper.tolist() + lower[::-1].tolist(),
+            fill='toself',
+            fillcolor=hex_to_rgba(color, 0.2),
+            line=dict(color='rgba(255,255,255,0)'),
+            hoverinfo="skip",
+            showlegend=False
+        ))
 
     fig_plotly.update_layout(
         title=f"{' + '.join(question_labels)} Over Time by Irritability",
@@ -358,7 +380,6 @@ def plot_questions_over_time(df, ari_df, question_labels):
         width=1000
     )
 
-    # === Plotly export figure (for PNG saving) ===
     fig_export = go.Figure(fig_plotly.to_dict())
     fig_export.update_layout(
         margin=dict(l=120, r=100, t=100, b=120),
@@ -369,58 +390,46 @@ def plot_questions_over_time(df, ari_df, question_labels):
     # === Matplotlib plot ===
     fig_mat, ax = plt.subplots(figsize=(6, 4))
     x_vals = range(len(means.index))
-    for grp, color in zip(["Irritable", "Non-Irritable"], ["#2e6c70", PALETTE[4]]):
-        if grp in means:
-            ax.plot(
-                x_vals, 
-                means[grp], 
-                label=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})", 
-                marker='o', 
-                color=color, 
-                linewidth=1.5,
-                markersize=4)
-            ax.fill_between(
-                x_vals,
-                (means[grp] - sems[grp]).interpolate(limit_direction='both'),
-                (means[grp] + sems[grp]).interpolate(limit_direction='both'),
-                color=color,
-                alpha=0.15,
-                edgecolor=None
-            )
+    for grp in ordered_groups:
+        color = color_map.get(grp, "#cccccc")
+        ax.plot(
+            x_vals,
+            means[grp],
+            label=f"{grp} (N={merged[merged['group'] == grp]['participant_code'].nunique()})",
+            marker='o',
+            color=color,
+            linewidth=1.5,
+            markersize=4
+        )
+        ax.fill_between(
+            x_vals,
+            (means[grp] - sems[grp]).interpolate(limit_direction='both'),
+            (means[grp] + sems[grp]).interpolate(limit_direction='both'),
+            color=color,
+            alpha=0.15,
+            edgecolor=None
+        )
 
-    # Axis labels & title
     ax.set_title(f"{' + '.join(question_labels)} Over Time by Irritability", pad=10)
     ax.set_xlabel("Timepoint", fontdict={'fontsize': 11, 'color': 'dimgray'})
     ax.set_ylabel("Average Score", fontdict={'fontsize': 11, 'color': 'dimgray'})
-
-    # Tick styling
     ax.set_xticks(x_vals)
     ax.set_xticklabels(means.index, rotation=45, ha="right")
     ax.tick_params(axis='x', labelsize=9, colors='dimgray')
     ax.tick_params(axis='y', labelsize=9, colors='dimgray')
-
-    # Y-axis spacing (e.g. every 0.5)
     ax.yaxis.set_major_locator(MultipleLocator(0.5))
-
-    # Gridlines
     ax.grid(True, axis='y', linestyle='-', alpha=0.15)
-
-    # Legend
-    leg = ax.legend(loc="upper right", frameon=True, fontsize='7' ,facecolor='white', edgecolor='lightgray')
+    leg = ax.legend(loc="upper right", frameon=True, fontsize='7', facecolor='white', edgecolor='lightgray')
     leg.get_frame().set_alpha(0.3)
-
-    # Spine cleanup
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_color('lightgray')
     ax.spines['bottom'].set_color('lightgray')
     ax.spines['left'].set_linewidth(0.8)
     ax.spines['bottom'].set_linewidth(0.8)
-
     plt.tight_layout()
 
     return fig_plotly, fig_export, fig_mat
-
 
 
 
@@ -521,68 +530,76 @@ def plot_correlation_matrix(df, ari_df, selected_questions):
 
     return fig_plotly, fig_export, fig_mat
 
-def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=None):
-    """
-    Returns 3 figures:
-    - Plotly figure for display
-    - Plotly figure for PNG export
-    - Matplotlib figure for PNG export
-    """
+def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=None, color_map=None):
+    import seaborn as sns
+    from matplotlib.patches import Patch
+    import plotly.express as px
+    import plotly.graph_objects as go
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    print("🔍 Starting plot_sync_comparison")
+    print(f"🔍 Metric: {metric}, Plot type: {plot_type}")
+    print(f"🔍 Available columns: {list(sync_df.columns)}")
+
     if questions is not None:
         sync_df = sync_df[sync_df["question"].isin(questions)]
+        print(f"🔍 Filtered questions: {questions}")
 
-    # Drop missing values for selected metric
     df = sync_df.dropna(subset=[metric])
+    print(f"🔍 Remaining rows after dropping NA in {metric}: {len(df)}")
 
     title_map = {
         "pearson": "Pearson Correlation",
         "spearman": "Spearman Correlation",
         "mad": "Mean Absolute Difference (MAD)"
     }
-
     y_title = title_map.get(metric, metric)
 
-    # Count Ns per question/group
+    if "group" not in df.columns:
+        df["group"] = "All"
+        print("⚠️ 'group' column missing, set to 'All'")
+
+    if color_map is None:
+        color_map = {
+            "Low": "#cbdfe0",
+            "Medium": "#88babc",
+            "High": "#114f52",
+            "All": "#888888"
+        }
+
     counts = df.groupby(["question", "group"]).size().unstack(fill_value=0)
     question_labels = {
-        q: f"{q} (N={counts.loc[q].get('Non-Irritable', 0)},{counts.loc[q].get('Irritable', 0)})"
+        q: f"{q} (N={','.join(str(counts.loc[q].get(g, 0)) for g in ['Low', 'Medium', 'High'] if g in counts.columns)})"
         for q in counts.index
     }
 
-    # === Plotly Figure ===
-    color_map = {
-        "Irritable": "#2e6c70",
-        "Non-Irritable": PALETTE[4]
-    }
-
+    unique_groups = df["group"].dropna().unique().tolist()
+    group_order = [g for g in ["Low", "Medium", "High", "All"] if g in unique_groups]
+    df["group"] = pd.Categorical(df["group"], categories=group_order, ordered=True)
     df["question_label"] = df["question"].map(question_labels)
 
+    print(f"🔍 Group order: {group_order}")
+    print(f"🔍 Color map: {color_map}")
+
+    # === Plotly ===
     if plot_type == "box":
         fig_plotly = px.box(
-            df,
-            x="group",
-            y=metric,
-            color="group",
-            facet_col="question_label",
-            facet_col_wrap=4,
+            df, x="group", y=metric, color="group",
+            facet_col="question_label", facet_col_wrap=4,
             title=f"Parent-Child Synchronization by Group ({y_title})",
-            points="all",
-            height=600,
-            color_discrete_map=color_map
+            points="all", height=600,
+            color_discrete_map=color_map,
+            category_orders={"group": group_order}
         )
     else:
         fig_plotly = px.violin(
-            df,
-            x="group",
-            y=metric,
-            color="group",
-            facet_col="question_label",
-            facet_col_wrap=4,
+            df, x="group", y=metric, color="group",
+            facet_col="question_label", facet_col_wrap=4,
             title=f"Parent-Child Synchronization by Group ({y_title})",
-            points="all",
-            box=True,
-            height=600,
-            color_discrete_map=color_map
+            points="all", box=True, height=600,
+            color_discrete_map=color_map,
+            category_orders={"group": group_order}
         )
 
     fig_plotly.update_layout(
@@ -592,39 +609,31 @@ def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=N
         margin=dict(t=80, b=60),
         showlegend=False,
     )
-
-    # 🔧 Remove all x-axis titles (facets) and rotate tick labels to 0
     fig_plotly.for_each_xaxis(lambda axis: axis.update(title=None, tickangle=0))
-    fig_plotly.for_each_annotation(lambda a: a.update(
-        text=a.text.replace("question_label=", "").strip()
-    ))
+    fig_plotly.for_each_annotation(lambda a: a.update(text=a.text.replace("question_label=", "").strip()))
 
-    # Export version
     fig_export = go.Figure(fig_plotly.to_dict())
-    fig_export.update_layout(
-        width=700,
-        height=550,
-        margin=dict(l=120, r=100, t=100, b=120),
-    )
-
+    fig_export.update_layout(width=700, height=550, margin=dict(l=120, r=100, t=100, b=120))
     fig_export.update_yaxes(zeroline=False)
 
-     # === Matplotlib Version ===
-    import seaborn as sns
+    # === Matplotlib ===
     num_questions = df["question"].nunique()
     n_cols = 4
     n_rows = -(-num_questions // n_cols)
-
     fig_mat, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 4 * n_rows), squeeze=False)
-    grouped = df.groupby("question")
 
-    for i, (question, group_data) in enumerate(grouped):
+    grouped = df.groupby("question")
+    i = 0
+    for question, group_data in grouped:
+        if group_data.empty:
+            continue
         row, col = divmod(i, n_cols)
         ax = axes[row][col]
-        palette = {
-            "Irritable": "#2e6c70",
-            "Non-Irritable": PALETTE[4]
-        }
+
+        safe_order = [g for g in group_data["group"].unique() if pd.notna(g)]
+        group_data = group_data.copy()
+        group_data["group"] = pd.Categorical(group_data["group"], categories=safe_order, ordered=True)
+        palette = {g: color_map.get(g, "#cccccc") for g in safe_order}
 
         if plot_type == "box":
             sns.boxplot(x="group", y=metric, data=group_data, ax=ax, palette=palette)
@@ -632,48 +641,45 @@ def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=N
             sns.violinplot(x="group", y=metric, data=group_data, ax=ax, inner="quartile", palette=palette)
 
         ax.set_xlabel("")
-
         if col == 0:
-            # Only leftmost plots in each row show y-axis
             apply_modern_mpl_style(ax, title=question, ylabel=y_title)
         else:
             ax.set_ylabel("")
             ax.set_yticklabels([])
             ax.tick_params(axis='y', left=False)
             apply_modern_mpl_style(ax, title=question)
+        i += 1
 
-    # Turn off unused subplots
-    for j in range(i + 1, n_rows * n_cols):
+    for j in range(i, n_rows * n_cols):
         row, col = divmod(j, n_cols)
         axes[row][col].axis("off")
-
-    from matplotlib.patches import Patch
-    handles = [
-        Patch(color="#2e6c70", label="Irritable"),
-        Patch(color=PALETTE[4], label="Non-Irritable")
-    ]
 
     fig_mat.tight_layout()
     return fig_plotly, fig_export, fig_mat
 
 
 
-
 def main():
     df = pd.read_csv(DATA_PATH, encoding="utf-8-sig")
     ari_df = pd.read_excel(ARI_PATH)
-    ari_df = preprocess_ari_df(ari_df)
+    ari_df = assign_ari_groups(ari_df, low_th=3, high_th=5)
+
+    color_map = {
+        "Low": PALETTE[4],
+        "Medium": "#ff7f0e",
+        "High": "#2e6c70"
+    }
 
     plot_aggression(df.copy(), ari_df)
-    plot_means_by_irritability(df.copy(), ari_df)
-    plot_questions_over_time(df.copy(), ari_df, "C_Irr_Frustration")
+    plot_means_by_irritability(df.copy(), ari_df, ["C_Irr_Frustration"], color_map=color_map)
+    plot_questions_over_time(df.copy(), ari_df, "C_Irr_Frustration", color_map=color_map)
     plot_correlation_matrix(df.copy(), ari_df)
 
     # New: Synchronization comparison
     sync_path = os.path.join(PROJECT_ROOT, "output", "sync_df.csv")
     sync_df = pd.read_csv(sync_path)
 
-    fig = plot_sync_comparison(sync_df, metric="pearson", plot_type="box")
+    fig = plot_sync_comparison(sync_df, metric="pearson", plot_type="box", color_map=color_map)
     fig.savefig(os.path.join(OUTPUT_DIR, "sync_comparison_pearson_box.png"), dpi=300, bbox_inches="tight")
 
 if __name__ == "__main__":
