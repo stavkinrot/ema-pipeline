@@ -9,6 +9,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import base64
+from matplotlib.patches import Patch
+from scipy.stats import ttest_ind
+import itertools
+from matplotlib.colors import to_rgba
+from statannotations.Annotator import Annotator
 
 from colors_config import PALETTE, AGGRESSION_COLORS
 from factor_config import FACTOR_QUESTIONS
@@ -25,6 +30,26 @@ OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "plots")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # === Export Helpers ===
+def add_pvalue_manual(ax, x1, x2, y, h, pval, color="gray", fontsize=8, stars=True):
+    # Do not display non-significant
+    if pval >= 0.05:
+        return
+    # Stars format
+    if stars:
+        if pval < 0.001:
+            text = "***"
+        elif pval < 0.01:
+            text = "**"
+        else:
+            text = "*"
+    else:
+        text = f"p = {pval:.3f}"
+
+    # Line
+    ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], lw=0.8, c=color)
+    # Text
+    ax.text((x1 + x2) / 2, y + h + 0.003, text, ha='center', va='bottom', fontsize=fontsize, color=color)
+
 def apply_modern_mpl_style(ax, *, xlabel=None, ylabel=None, title=None, xtick_labels=None):
     darkgray = "#4B4B4B"
     from matplotlib.ticker import MultipleLocator
@@ -231,7 +256,11 @@ def plot_means_by_irritability(df, ari_df, selected_questions, color_map):
 
         # Compute group means and N
         grouped = melted.groupby(["Question", "group"])["Mean Score"].mean().reset_index()
-        n_per_group = df_role.groupby("group")["group"].count().to_dict()
+        df_role["participant_code"] = merged["participant_code"]
+        n_per_group = df_role.groupby("group")["participant_code"].nunique().to_dict()
+
+        print("Correct group counts:", n_per_group)
+        print("Sum of participants:", sum(n_per_group.values()))  # Should equal 81
 
         # Plotly interactive chart
         grouped["group_with_n"] = grouped["group"].apply(
@@ -299,7 +328,7 @@ def plot_means_by_irritability(df, ari_df, selected_questions, color_map):
         ax.legend(loc="upper right")
         apply_modern_mpl_style(
             ax,
-            xlabel="Question",
+            xlabel="Item",
             ylabel="Mean Score",
             title=f"{label} Question Means by Irritability"
         )
@@ -530,16 +559,11 @@ def plot_correlation_matrix(df, ari_df, selected_questions):
 
     return fig_plotly, fig_export, fig_mat
 
-def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=None, color_map=None):
-    import seaborn as sns
-    from matplotlib.patches import Patch
-    import plotly.express as px
-    import plotly.graph_objects as go
-    import pandas as pd
-    import matplotlib.pyplot as plt
+def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=None, color_map=None, show_pvalues=False):
+    
 
     print("🔍 Starting plot_sync_comparison")
-    print(f"🔍 Metric: {metric}, Plot type: {plot_type}")
+    print(f"🔍 Metric: {metric}, Plot type: {plot_type}, Show p-values: {show_pvalues}")
     print(f"🔍 Available columns: {list(sync_df.columns)}")
 
     if questions is not None:
@@ -574,33 +598,55 @@ def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=N
         for q in counts.index
     }
 
-    unique_groups = df["group"].dropna().unique().tolist()
-    group_order = [g for g in ["Low", "Medium", "High", "All"] if g in unique_groups]
+    group_order = [g for g in ["Low", "Medium", "High", "All"] if g in df["group"].unique() and pd.notna(g)]
     df["group"] = pd.Categorical(df["group"], categories=group_order, ordered=True)
     df["question_label"] = df["question"].map(question_labels)
 
     print(f"🔍 Group order: {group_order}")
     print(f"🔍 Color map: {color_map}")
 
-    # === Plotly ===
-    if plot_type == "box":
-        fig_plotly = px.box(
-            df, x="group", y=metric, color="group",
-            facet_col="question_label", facet_col_wrap=4,
-            title=f"Parent-Child Synchronization by Group ({y_title})",
-            points="all", height=600,
-            color_discrete_map=color_map,
-            category_orders={"group": group_order}
-        )
-    else:
-        fig_plotly = px.violin(
-            df, x="group", y=metric, color="group",
-            facet_col="question_label", facet_col_wrap=4,
-            title=f"Parent-Child Synchronization by Group ({y_title})",
-            points="all", box=True, height=600,
-            color_discrete_map=color_map,
-            category_orders={"group": group_order}
-        )
+    fig_func = px.box if plot_type == "box" else px.violin
+    fig_kwargs = dict(
+        x="group", y=metric, color="group",
+        facet_col="question_label", facet_col_wrap=4,
+        title=f"Parent-Child Synchronization by Group ({y_title})",
+        points="all", height=600,
+        color_discrete_map=color_map,
+        category_orders={"group": group_order}
+    )
+    if plot_type == "violin":
+        fig_kwargs["box"] = True
+    fig_plotly = fig_func(df, **fig_kwargs)
+
+    if show_pvalues:
+        print("🔍 Adding p-value annotations to Plotly plot...")
+        for question_label, group_df in df.groupby("question_label"):
+            safe_order = [g for g in group_df["group"].cat.categories if g in group_df["group"].unique()]
+            for i, (g1, g2) in enumerate(itertools.combinations(safe_order, 2)):
+                d1 = group_df[group_df["group"] == g1][metric]
+                d2 = group_df[group_df["group"] == g2][metric]
+                if len(d1) < 2 or len(d2) < 2:
+                    continue
+                _, pval = ttest_ind(d1, d2, equal_var=False)
+                if pval < 0.001:
+                    stars = "***"
+                elif pval < 0.01:
+                    stars = "**"
+                elif pval < 0.05:
+                    stars = "*"
+                else:
+                    continue
+
+                x0, x1 = group_order.index(g1), group_order.index(g2)
+                fig_plotly.add_annotation(
+                    text=stars,
+                    x=(x0 + x1) / 2,
+                    y=group_df[metric].max() + 0.05 + i * 0.03,
+                    showarrow=False,
+                    xref="x domain",
+                    yref="y",
+                    font=dict(size=12, color="#444")
+                )
 
     fig_plotly.update_layout(
         yaxis_title=y_title,
@@ -616,13 +662,16 @@ def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=N
     fig_export.update_layout(width=700, height=550, margin=dict(l=120, r=100, t=100, b=120))
     fig_export.update_yaxes(zeroline=False)
 
-    # === Matplotlib ===
+    # Matplotlib
     num_questions = df["question"].nunique()
     n_cols = 4
     n_rows = -(-num_questions // n_cols)
-    fig_mat, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 4 * n_rows), squeeze=False)
+    fig_mat, axes = plt.subplots(n_rows, n_cols, figsize=(2.4 * n_cols, 2.8 * n_rows), squeeze=False)
 
     grouped = df.groupby("question")
+    global_y_max = df[metric].max()
+    global_y_lim = max(1.05, global_y_max + 0.15)
+
     i = 0
     for question, group_data in grouped:
         if group_data.empty:
@@ -630,33 +679,90 @@ def plot_sync_comparison(sync_df, metric="pearson", plot_type="box", questions=N
         row, col = divmod(i, n_cols)
         ax = axes[row][col]
 
-        safe_order = [g for g in group_data["group"].unique() if pd.notna(g)]
-        group_data = group_data.copy()
+        safe_order = [g for g in ["Low", "Medium", "High"] if g in group_data["group"].unique()]
         group_data["group"] = pd.Categorical(group_data["group"], categories=safe_order, ordered=True)
         palette = {g: color_map.get(g, "#cccccc") for g in safe_order}
 
-        if plot_type == "box":
-            sns.boxplot(x="group", y=metric, data=group_data, ax=ax, palette=palette)
-        else:
-            sns.violinplot(x="group", y=metric, data=group_data, ax=ax, inner="quartile", palette=palette)
+        n_counts = group_data["group"].value_counts().reindex(safe_order).fillna(0).astype(int).tolist()
+        title = f"{question} (N={','.join(map(str, n_counts))})"
 
+        # === Use compact positions ===
+        positions = {
+            2: [0.3, 0.7],
+            3: [0.2, 0.5, 0.8]
+        }.get(len(safe_order), list(range(len(safe_order))))
+
+        # Create custom colored boxes
+        bp = ax.boxplot(
+            [group_data[group_data["group"] == g][metric] for g in safe_order],
+            positions=positions,
+            widths=0.2,
+            patch_artist=True,
+            boxprops=dict(linewidth=1.5),
+            medianprops=dict(linewidth=1.5),
+            whiskerprops=dict(linewidth=1.2),
+            capprops=dict(linewidth=1.2),
+            flierprops=dict(marker='o', markersize=4, alpha=0)
+        )
+
+        for j, group in enumerate(safe_order):
+            base_color = palette[group]
+            edge_color = to_rgba(base_color, alpha=1)
+            face_color = to_rgba(base_color, alpha=0.5)
+
+            bp['boxes'][j].set(facecolor=face_color, edgecolor=edge_color, linewidth=1.2)
+            bp['whiskers'][2*j].set_color(edge_color)
+            bp['whiskers'][2*j+1].set_color(edge_color)
+            bp['caps'][2*j].set_color(edge_color)
+            bp['caps'][2*j+1].set_color(edge_color)
+            bp['medians'][j].set_color(edge_color)
+            bp['medians'][j].set_linewidth(1.2)
+
+            # Scatter dots to the left
+            group_vals = group_data[group_data["group"] == group][metric]
+            jitter_x = np.random.normal(positions[j] - 0.14, 0.03, size=len(group_vals))
+            ax.scatter(jitter_x, group_vals, color=base_color, alpha=0.4, s=10, zorder=3)
+
+        ax.set_ylim(-1, global_y_lim)
+        ax.set_xlim(0, 1)
+
+        # P-value stars between box pairs
+        if show_pvalues and len(safe_order) > 1:
+            y_base = group_data[metric].max() + 0.03
+            offset = 0.04
+            for idx, (g1, g2) in enumerate(itertools.combinations(safe_order, 2)):
+                d1 = group_data[group_data["group"] == g1][metric]
+                d2 = group_data[group_data["group"] == g2][metric]
+                if len(d1) < 2 or len(d2) < 2:
+                    continue
+                _, pval = ttest_ind(d1, d2, equal_var=False)
+                x1 = positions[safe_order.index(g1)]
+                x2 = positions[safe_order.index(g2)]
+                add_pvalue_manual(ax, x1, x2, y_base + idx * offset, h=0.01, pval=pval)
+
+        ax.set_xticks(positions)
+        ax.set_xticklabels(safe_order)
         ax.set_xlabel("")
+
         if col == 0:
-            apply_modern_mpl_style(ax, title=question, ylabel=y_title)
+            apply_modern_mpl_style(ax, title=title, ylabel=y_title)
         else:
             ax.set_ylabel("")
             ax.set_yticklabels([])
             ax.tick_params(axis='y', left=False)
-            apply_modern_mpl_style(ax, title=question)
+            ax.grid(False, axis='y')
+            ax.spines['left'].set_visible(False)
+            apply_modern_mpl_style(ax, title=title)
+
         i += 1
 
     for j in range(i, n_rows * n_cols):
         row, col = divmod(j, n_cols)
         axes[row][col].axis("off")
 
-    fig_mat.tight_layout()
+    fig_mat.tight_layout(w_pad=0.8, h_pad=1.5)
+    fig_mat.subplots_adjust(wspace=0.02, hspace=0.4)
     return fig_plotly, fig_export, fig_mat
-
 
 
 def main():

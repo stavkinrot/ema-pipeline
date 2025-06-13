@@ -69,6 +69,7 @@ def main():
         merged_df = merge_surveys(children_df, parents_df)
         merged_df.to_csv(output_merged_csv, index=False, encoding="utf-8-sig")
         print(f"[INFO] Saved merged wide-format survey to {output_merged_csv}")
+        print("Unique participants after merge:", merged_df["participant_code_child"].nunique())
 
     print("[INFO] Running post-processing: dyadic_sync")
     run_dyadic_sync()

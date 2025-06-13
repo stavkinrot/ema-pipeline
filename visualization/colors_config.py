@@ -2,13 +2,13 @@ PALETTE = [
     "#00373a",
     "#114f52",
     "#6e9395",
-    "#cbdfe0",
-    "#88babc",
+    "#66D7E8",
+    "#3BA9B3",
     "#19A59E",
     "#88babc",
     "#91d2d4",
-
 ]
+
 
 # Semantic mapping for aggression plot
 AGGRESSION_COLORS = {

@@ -1,19 +1,20 @@
-import streamlit as st
-import pandas as pd
 import os
 import sys
+
+# === Path Config ===
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+PROCESSING_DIR = os.path.join(PROJECT_ROOT, "processing")
+sys.path.insert(0, PROJECT_ROOT)
+sys.path.insert(0, PROCESSING_DIR)
+
+import streamlit as st
+import pandas as pd
 from included_questions import INCLUDED_QUESTIONS
 from io import BytesIO
 import plotly.io as pio
 import matplotlib.pyplot as plt
 from visualization.colors_config import PALETTE
 from visualize_all import assign_ari_groups
-
-# === Path Config ===
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-PROCESSING_DIR = os.path.join(PROJECT_ROOT, "processing")
-sys.path.insert(0, PROCESSING_DIR)
-
 from labeling import build_label_to_hebrew_map
 
 DATA_PATH = os.path.join(PROJECT_ROOT, "output", "merged_surveys.csv")
@@ -356,6 +357,10 @@ elif vis_type == "Dyadic Synchronization Comparison":
         color_med = st.color_picker("Medium", PALETTE[4])
         color_high = st.color_picker("High", PALETTE[1])
 
+        st.markdown("### ✴️ Show p values?")
+        show_pvalues = st.checkbox("Display group comparison asterisks", value=False, key="sync_pval_toggle")
+
+
         apply_changes = st.button("✅ Apply", key="sync_apply")
 
     if "sync_config" not in st.session_state:
@@ -447,10 +452,13 @@ elif vis_type == "Dyadic Synchronization Comparison":
             metric=correlation_type,
             plot_type=plot_type,
             questions=selected_sync_questions,
-            color_map=color_map
+            color_map=color_map,
+            show_pvalues=show_pvalues
         )
         st.plotly_chart(fig_plotly, use_container_width=True)
         download_buttons(fig_export, fig_mat, filename_prefix=f"sync_comparison_{correlation_type}_{plot_type}")
     else:
         st.warning("Please select at least one question to display.")
+
+# streamlit run visualization/ema_streamlit_app.py
 
