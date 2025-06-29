@@ -63,10 +63,13 @@ After downloading and unzipping the project, you will see:
 ### ✅ Step 3: Install Required Packages
 
 1. Open **Command Prompt** (Windows) or **Terminal** (Mac).
-2. Type the following and press Enter:
-
+2. Navigate to the folder where you unzipped the project. For example:
 ```
-pip install pandas numpy openpyxl
+cd Desktop/ema-pipeline-main
+```
+3. Install all required packages by running:
+```
+pip install -r requirements.txt
 ```
 
 ---
