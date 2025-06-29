@@ -8,5 +8,6 @@ plotly
 streamlit
 tqdm
 scipy
-
+kaleido
+statannotations
 # pip install -r requirements.txt
