@@ -107,6 +107,18 @@ python ema_pipeline.py
 
 ---
 
+### ✅ Step 6 (Optional): Run the Visualization App
+
+You can launch an interactive dashboard using **Streamlit**:
+
+```bash
+streamlit run visualization/ema_streamlit_app.py
+```
+
+A browser window will open. If it doesn't, copy the link (usually `http://localhost:8501`) into your browser manually.
+
+---
+
 ## 📦 What You’ll Get in the Output
 
 After the script finishes, open the `output/` folder inside the project. You will find:
