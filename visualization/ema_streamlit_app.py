@@ -75,13 +75,17 @@ vis_type = st.sidebar.selectbox("Choose Visualization Type", [
 def download_buttons(fig_plotly=None, fig_mat=None, filename_prefix="plot"):
     if fig_plotly:
         buf = BytesIO()
-        pio.write_image(fig_plotly, buf, format="png", scale=3)
-        st.download_button(
-            label="Download as PNG (Plotly)",
-            data=buf.getvalue(),
-            file_name=f"{filename_prefix}_plotly.png",
-            mime="image/png"
-        )
+        try:
+            pio.write_image(fig_plotly, buf, format="png", scale=3)
+            st.download_button(
+                label="Download as PNG (Plotly)",
+                data=buf.getvalue(),
+                file_name=f"{filename_prefix}_plotly.png",
+                mime="image/png"
+            )
+        except Exception as e:
+            st.warning("Cloud not generate PNG with Plotly. Try using browser screenshot instead.")
+    
     if fig_mat:
         buf = BytesIO()
         fig_mat.savefig(buf, format="png", dpi=300, bbox_inches="tight")
