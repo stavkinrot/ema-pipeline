@@ -156,10 +156,8 @@ elif vis_type == "Mean Scores by Group":
     all_scale_questions = [f"{prefix}{q}" for q in SCALE_QUESTIONS if f"{prefix}{q}" in df.columns]
     default_included = [q for q in INCLUDED_QUESTIONS if q.startswith(prefix) and q in all_scale_questions]
 
-    previous = st.session_state.get("mean_scores_selector", default_included)
-    stripped_previous = {q[2:] for q in previous}
-    converted_selection = [f"{prefix}{q}" for q in stripped_previous if f"{prefix}{q}" in all_scale_questions]
-    st.session_state["mean_scores_selector"] = converted_selection
+    if "mean_scores_selector" not in st.session_state:
+        st.session_state["mean_scores_selector"] = default_included
 
     col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
