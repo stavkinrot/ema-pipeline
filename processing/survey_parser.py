@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from processing.labeling import relabel_columns
 import logging
 
+WEEKEND_INCLUDED_CODES_DIVORCED = {"#7499", "#7500", "#7391", "#7392"}
+
 # --- Logging setup ---
 os.makedirs("logs", exist_ok=True)
 
@@ -21,6 +23,27 @@ uq_handler = logging.FileHandler("logs/unmatched_questions.log", mode="w", encod
 uq_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
 unmatched_questions_logger.addHandler(uq_handler)
 unmatched_questions_logger.propagate = False
+
+# --- Helper Logging Function ---
+def log_unmatched_dyads(children_df: pd.DataFrame, parents_df: pd.DataFrame):
+    unmatched_participants_logger.warning("--- Final unmatched dyad check ---")
+
+    child_codes = set(children_df["participant_code"].dropna().unique())
+    parent_codes = set(parents_df["participant_code"].dropna().unique())
+
+    for child_code in sorted(child_codes):
+        expected_parent = f"#{int(child_code[1:]) - 1:04}"
+        if expected_parent not in parent_codes:
+            unmatched_participants_logger.warning(
+                f"[MISSING PARENT] Child {child_code} found in children_df, but parent {expected_parent} not found in parents_df."
+            )
+
+    for parent_code in sorted(parent_codes):
+        expected_child = f"#{int(parent_code[1:]) + 1:04}"
+        if expected_child not in child_codes:
+            unmatched_participants_logger.warning(
+                f"[MISSING CHILD] Parent {parent_code} found in parents_df, but child {expected_child} not found in children_df."
+            )
 
 # Global list to store other free-text values
 other_text_participants_by_day = []
@@ -112,12 +135,15 @@ def parse_survey_folder(folder_path, question_map):
     id_to_code = dict(zip(valid_code_df[id_col], valid_code_df[code_col]))
     code_to_id = {v: k for k, v in id_to_code.items()}
 
-    skip_weekends = "בלי_שישי_שבת" in folder_path
+    skip_weekends_folder = "בלי_שישי_שבת" in folder_path
+
+    def should_skip_weekends(participant_code):
+        return skip_weekends_folder and participant_code not in WEEKEND_INCLUDED_CODES_DIVORCED
 
     code_to_start_day = {
         row[code_col]: get_first_experiment_day(
             pd.to_datetime(row[date_col], errors="coerce").date(),
-            skip_weekends
+            skip_weekends_folder
         )
         for _, row in valid_code_df.iterrows()
     }
@@ -164,13 +190,14 @@ def parse_survey_folder(folder_path, question_map):
             continue
 
         start_date = code_to_start_day[participant]
-        expected_dates = get_expected_dates(start_date, skip_weekends)
+        participant_skip_weekends = should_skip_weekends(participant)
+        expected_dates = get_expected_dates(start_date, participant_skip_weekends)
         expected_timepoints = {(d, tod): False for d in expected_dates for tod in ["AM", "PM"]}
 
         for _, row in p_df.iterrows():
             survey_date = row["Start Date"].date()
             tod = row["time_of_day"]
-            if skip_weekends and survey_date.weekday() in [4, 5]:
+            if participant_skip_weekends and survey_date.weekday() in [4, 5]:
                 continue
             if survey_date in expected_dates:
                 expected_timepoints[(survey_date, tod)] = True
@@ -253,6 +280,8 @@ def merge_surveys(children_df: pd.DataFrame, parents_df: pd.DataFrame) -> pd.Dat
     Returns:
         A DataFrame with suffixes `_child` and `_parent` for each side's responses.
     """
+    log_unmatched_dyads(children_df, parents_df)
+    
     children_df["merge_key"] = children_df.apply(
         lambda row: (row["participant_code"], row["day"], row["time_of_day"]), axis=1
     )
