@@ -78,13 +78,15 @@ pip install -r requirements.txt
 
 1. Open the unzipped project folder.
 2. Go into the `data/` folder.
-3. Create a **new folder** called:
+3. Create a **new folders** called:
 
 ```
 input_zips
+extracted
 ```
 
-4. Put all your `.zip` survey files into that folder.
+4. Put all your `.zip` survey files into input_zips.
+5. If there are unzipped survey files, put them into extracted.
 
 ---
 
