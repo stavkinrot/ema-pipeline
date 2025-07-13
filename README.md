@@ -14,27 +14,35 @@ This project provides a simple way to process, clean, and organize survey data c
 After downloading and unzipping the project, you will see:
 
 ```bash
-├── children_example.xlsx
+├── README.md
 ├── ema_pipeline.py
-├── generate_tree.py
-├── pipleline_structure.txt
-└── project_structure.txt
 ├── data/
+│   ├── ARI.xlsx
 │   ├── children_labeling.xlsx
+│   ├── labeling.xlsx
 │   └── parent_labeling.xlsx
 ├── output/
+│   ├── child_parent_averages.csv
 │   ├── children_surveys.csv
 │   ├── children_surveys.xlsx
+│   ├── merged_surveys.csv
 │   ├── merged_surveys.xlsx
 │   ├── other_text_responses.csv
 │   ├── parents_surveys.csv
 │   └── parents_surveys.xlsx
 ├── processing/
+│   ├── averager.py
 │   ├── contradiction_config.py
 │   ├── extract.py
 │   ├── labeling.py
 │   ├── outlier_detector.py
 │   └── survey_parser.py
+├── visualization/
+│   ├── colors_config.py
+│   ├── ema_streamlit_app.py
+│   ├── factor_config.py
+│   ├── included_questions.py
+│   └── visualize_all.py
 ```
 
 ---
